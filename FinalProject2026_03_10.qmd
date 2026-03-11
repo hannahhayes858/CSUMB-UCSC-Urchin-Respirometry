@@ -1,0 +1,345 @@
+---
+title: "Final Project DS4EEB"
+author: "Hannah Hayes"
+format: html
+editor: visual
+---
+
+### Libraries & Packages
+
+```{r}
+#install.packages("usethis")
+library("usethis")
+#install.packages("here")
+library("here")
+#install.packages("dplyr")
+library(tidyverse) #this will help us clean up the data 
+library(readr)
+#install.packages("respR")
+library(respR)
+#install.packages("devtools")
+library(devtools)
+library(lubridate) #To turn time HH:MM:SS AM/PM into seconds passed
+```
+
+### Working Directory
+
+```{r}
+#file.choose()
+setwd("/Users/hannahhayes858/Desktop/JJG x HH Collab/Data/FieldRep_021826-2/UTF") 
+```
+
+### Read in the Data
+
+The way that LoLigo has give us the data is a separate CSV for each chamber, and they don't have a column for which chamber it is. So I'm going to read in all the data and add a column for the chamber number.
+
+```{r}
+#Field Resp Chamber 1 
+FRCh1 <- read.csv("/Users/hannahhayes858/Desktop/JJG x HH Collab/Data/FieldRep_021826-2/UTF/FieldRep_021826_Restingchamber1_218202610216_UTF.csv")
+FRCh1 #Check if it read in correctly
+
+  ##We're going to overwrite FRCh1 so it includes the chamber column
+FRCh1 <- FRCh1 %>%
+  select(-Date) %>% 
+ mutate(chamber = 1, Date = "2026-02-18")
+
+#Field Resp Chamber 2 
+FRCh2 <- read.csv("/Users/hannahhayes858/Desktop/JJG x HH Collab/Data/FieldRep_021826-2/UTF/FieldRep_021826_Restingchamber2_218202610216_UTF.csv")
+FRCh2 #Check if it read in correctly
+
+  ##We're going to overwrite FRCh1 so it includes the chamber column
+FRCh2 <- FRCh2 %>%
+  select(-Date) %>% 
+ mutate(chamber = 2, Date = "2026-02-18")
+
+#Field Resp Chamber 3
+FRCh3 <- read.csv("/Users/hannahhayes858/Desktop/JJG x HH Collab/Data/FieldRep_021826-2/UTF/FieldRep_021826_Restingchamber3_218202610216_UTF.csv")
+FRCh3 #Check if it read in correctly
+
+  ##We're going to overwrite FRCh1 so it includes the chamber column
+FRCh3 <- FRCh3 %>%
+ mutate(chamber = 3, Date = "2026-02-18")
+
+#Field Resp Chamber 4
+FRCh4 <- read.csv("/Users/hannahhayes858/Desktop/JJG x HH Collab/Data/FieldRep_021826-2/UTF/FieldRep_021826_Restingchamber4_218202610216_UTF.csv")
+FRCh4 #Check if it read in correctly
+
+  ##We're going to overwrite FRCh1 so it includes the chamber column
+FRCh4 <- FRCh4 %>%
+ mutate(chamber = 4, Date = "2026-02-18")
+
+#Field Resp Chamber 5
+FRCh5 <- read.csv("/Users/hannahhayes858/Desktop/JJG x HH Collab/Data/FieldRep_021826-2/UTF/FieldRep_021826_Restingchamber5_218202610216_UTF.csv")
+FRCh5 #Check if it read in correctly
+
+  ##We're going to overwrite FRCh1 so it includes the chamber column
+FRCh5 <- FRCh5 %>%
+ mutate(chamber = 5, Date = "2026-02-18")
+
+#Field Resp Chamber 6
+FRCh6 <- read.csv("/Users/hannahhayes858/Desktop/JJG x HH Collab/Data/FieldRep_021826-2/UTF/FieldRep_021826_Restingchamber6_218202610216_UTF.csv")
+FRCh6 #Check if it read in correctly
+
+  ##We're going to overwrite FRCh1 so it includes the chamber column
+FRCh6 <- FRCh6 %>%
+ mutate(chamber = 6, Date = "2026-02-18")
+
+#Field Resp Chamber 7
+FRCh7 <- read.csv("/Users/hannahhayes858/Desktop/JJG x HH Collab/Data/FieldRep_021826-2/UTF/FieldRep_021826_Restingchamber7_218202610216_UTF.csv")
+FRCh7 #Check if it read in correctly
+
+  ##We're going to overwrite FRCh1 so it includes the chamber column
+FRCh7 <- FRCh7 %>%
+ mutate(chamber = 7, Date = "2026-02-18")
+
+#Field Resp Chamber 8
+FRCh8 <- read.csv("/Users/hannahhayes858/Desktop/JJG x HH Collab/Data/FieldRep_021826-2/UTF/FieldRep_021826_Restingchamber8_218202610216_UTF.csv")
+FRCh8 #Check if it read in correctly
+
+  ##We're going to overwrite FRCh1 so it includes the chamber column
+FRCh8 <- FRCh8 %>%
+ mutate(chamber = 8, Date = "2026-02-18")
+
+```
+
+### Combine all of the CSVs
+
+```{r}
+FR <- bind_rows(FRCh1, FRCh2, FRCh3, FRCh4, FRCh5, FRCh6, FRCh7, FRCh8) #Combine all of the data to one CSV
+FR #Check that it worked
+
+unique(FR$chamber) #Check that all the chambers made it into the same CSV
+```
+
+### For Loop
+
+```{r}
+
+```
+
+### Convert AM/PM into 24hr
+
+```{r}
+# Call upon Time column 
+FR$Time
+
+# Convert to a time object with a temporary date, recognizing the AM/PM format
+# strptime() automatically converts to 24-hour format internally
+time_objects <- strptime(FR$Time, format = "%I:%M:%S %p")
+
+# Format the time objects to display only the time in 24-hour format (military time)
+FR$Time <- format(time_objects, format = "%H:%M:%S")
+
+# Print the result
+FR$Time
+```
+
+### Convert Time into Seconds
+
+```{r}
+FR_sec <- FR %>%
+  mutate(
+    time_parsed = hms(Time),
+    seconds = as.numeric(time_parsed - first(time_parsed))
+  )
+```
+
+### Select for variables
+
+```{r}
+#O2%, Chamber, Date, seconds, temperature
+# Select specific columns
+FR_resp <- select(FR_sec, chamber, Date, )
+# Or use the pipe operator (%>%) which is common in Tidyverse
+FR_resp <- FR_sec %>% 
+  select(column_name_1, column_name_2)
+FR_resp$colname
+```
+
+### Trials
+
+#### Trial #1
+
+okay so we're having way more trouble loading in the data. I think we may have got it now so let's keep going. So through a lot of trial and error and googling and using chatgpt. Turns out the orgiianl file was a UTF 16, but r uses a UTF -8 files. So using TextEdit I was able to change the type of file then i reopened it in ecel and turned it into a CSBV now it works!!!!!!
+
+#### Trial #2
+
+Don't forget to check that everything is there. I didn't notice till after all of these steps that the seconds were missing from the time column so I have to go back and fix all of the csv files again!!!!
+
+```         
+```
+
+### Snips
+
+#### 1st attempt at bindrows
+
+This was to bind all of the CSVs from my local file together, but then I forgot none of them actually have the chamber column
+
+`{r| eval: false} #FR <- list.files(   #path = "/Users/hannahhayes858/Desktop/JJG x HH Collab/CSUMB-UCSC-Urchin-Respirometry/FieldResp_021826/UT8s/TestingforUTF",   #full.names = TRUE #) %>%   # lapply(read_csv) %>%   # bind_rows() #FR #write.csv(FR, "fieldrespch1_8.csv")`
+
+#### Separate Date and Time
+
+\`\`\`{r\| eval: false} #First we need to seperate the date and the time
+
+df_char \<- data.frame( datetime_string = c("2021-05-25 12:34:25", "2019-01-14 04:10:30"))
+
+df_separated \<- FR %\>% \# separate(Datetime, into = c("date", "time"), sep = " ") df_separated \`\`\`
+
+#### Sardine Data Set Example
+
+\`\`\`{r\| eval: false} #\| eval: false #\| include: false \# Example using built-in data 'sardine.rd' data(sardine.rd) \# Inspect the data (time in column 1, oxygen in column 2) sardine_insp \<- inspect(sardine.rd, time = 1, oxygen = 2)
+
+Calculate rate from a specific region (manual)
+
+manual_rate \<- calc_rate(sardine_insp, from = 1000, to = 3000)
+
+Automatically detect the "best-fit" linear rate
+
+auto_rate_obj \<- auto_rate(sardine_insp, method = "linear")
+
+Calculate background rate from background data (example data not shown)
+
+bg_rate \<- calc_rate.bg(background_data)
+
+Adjust the specimen rate
+
+adjusted_rate \<- adjust_rate(auto_rate_obj, by = bg_rate)
+
+Convert to mass-specific units (requires specimen mass and chamber volume)
+
+final_rate \<- convert_rate(adjusted_rate, volume = 1.2, \# volume of respirometer in L mass = 0.5, \# mass of specimen in kg \# input/output units will depend on your data O2.unit = "mg/L", time.unit = "hours", output.unit = "mg/h/kg")
+
+```{r}
+#devtools::install_github("januarharianto/respR")
+
+
+#load the data and combine all csv files
+# Source - https://stackoverflow.com/a/30242859
+# Posted by Maiasaura, modified by community. See post 'Timeline' for change history
+# Retrieved 2026-03-04, License - CC BY-SA 4.0
+```
+
+#### Change Time into seconds
+
+```{r}
+#| eval: false
+#| include: false
+FR_sec <- FR %>%
+  mutate(
+    time_parsed = parse_date_time(Time, "I:M:S"),
+    seconds = as.numeric(time_parsed - first(time_parsed))
+  )
+
+# Source - https://stackoverflow.com/a/31549819
+# Posted by inhuretnakht, modified by community. See post 'Timeline' for change history
+# Retrieved 2026-03-06, License - CC BY-SA 4.0
+
+library(lubridate)
+FR_sec <- FR %>% 
+period_to_seconds(hms("10:02:17"))
+
+FR_sec <- FR %>%
+  filter(is.na(parse_date_time(Time, orders = "I:M:S p"))) %>%
+  head()
+
+FR_Time <- trimws(FR, which = Time)
+
+FR_sec <- FR_Time %>%
+  mutate(
+    time_parsed = parse_date_time(Time, orders = "I:M:S p"),
+    seconds = as.numeric(time_parsed - first(time_parsed))
+  )
+```
+
+### Duplicate NA Columns
+
+```{r}
+FR_sec
+write.csv(FR_sec, "FR_sec.csv")
+file.choose()
+FR_2 <- read.csv("/Users/hannahhayes858/Desktop/JJG x HH Collab/Data/FieldRep_021826-2/UTF/FR.csv")
+
+Chamber1 <- FR_2 %>% #we need to get rid of salinity -> TempComp
+  filter(chamber == 1) %>% 
+  select(-(Salinity:TempComp)) %>% 
+  filter(Intermittent_mode == "RITM") %>% 
+  select(O_perecent_airsat:Temperature_compensation_C, chamber:seconds)
+
+
+Chamber2_8 <- FR_2 %>% 
+  filter(chamber > 1) %>% 
+  select(-(Salinity_N:Temperature_compensation_C)) %>% 
+  relocate(Salinity:TempComp, .before = PowerX4_EAC7_voltage_V_flush) %>% 
+  filter(Intermittent_mode == "RITM") %>% 
+  select(Oairsat:TempComp, chamber:seconds)
+
+colnames(Chamber1) <- colnames(Chamber2_8) #renaming all of the columns in the Chamber1 dataframe with the columns names from Chamber2_8
+FieldResp <- rbind(Chamber1, Chamber2_8) #Combining the two dataframes as FieldResp
+write.csv(FieldResp, "FieldResp_2026-02-18.csv")
+
+FieldResp %>% 
+  ggplot(aes(x = seconds, y = Oairsat, color = chamber)) +
+  geom_point()
+```
+
+### RespR Package
+
+```{r}
+# Convert your oxygen data to a respR object
+inspect(FieldResp)
+```
+
+### Calculate the Slope
+
+```{r}
+#Filtering for only chamber 1
+Ch1 <- FieldResp %>% 
+  filter(chamber == 1)
+
+Ch1_mmr <- calc_rate(Ch1,
+                     from = 359, # three minutes 'wait' after start
+                     to = 27838,   # five minutes later = 'measure' phase
+                     by = "row") |>
+  summary()
+
+Ch1_conv <- convert_rate(Ch1,
+                         oxy.unit = "mg/L",       # oxygen units of the original raw data
+                         time.unit = "secs",      # time units of the original raw data
+                         output.unit = "mg/h/g",  # desired output unit
+                         volume = 0.74392,        # effective volume of the respirometer in L
+                         mass = 0.02058)          # mass of the specimen in kg
+
+summary(Ch1_conv)
+```
+
+### Playing with Urchin Galapagos Data
+
+```{r}
+# define the Sharpe-Schoolfield equation
+schoolfield_high <- function(lnc, E, Eh, Th, temp, Tc) {
+  Tc <- 273.15 + Tc
+  k <- 8.62e-5
+  boltzmann.term <- lnc + log(exp(E/k*(1/Tc - 1/temp))) #units are eV/K, electrovolts/Kelvin
+  inactivation.term <- log(1/(1 + exp(Eh/k*(1/Th - 1/temp))))
+  return(boltzmann.term + inactivation.term)
+}
+# fit over each set of groupings
+
+#droplevels(mydata$Organism.ID)
+
+mydata$Location<-as.character(mydata$Location)
+mydata$Organism.ID<-as.character(mydata$Organism.ID)
+
+fits <- mydata %>%
+  group_by(Organism.ID, Location) %>%
+  nest() %>%
+  mutate(fit = purrr::map(data, ~ nls_multstart(log.rate ~ schoolfield_high(lnc, E, Eh, Th, temp = K, Tc = 26),
+                                                data = .x,
+                                                iter = 1000,
+                                                start_lower = c(lnc = -10, E = 0.1, Eh = 0.2, Th = 285),
+                                                start_upper = c(lnc = 10, E = 2, Eh = 5, Th = 330),
+                                                supp_errors = 'Y',
+                                                na.action = na.omit,
+                                                lower = c(lnc = -10, E = 0, Eh = 0, Th = 0))))
+
+```
