@@ -277,9 +277,23 @@ colnames(Chamber1) <- colnames(Chamber2_8) #renaming all of the columns in the C
 FieldResp <- rbind(Chamber1, Chamber2_8) #Combining the two dataframes as FieldResp
 write.csv(FieldResp, "FieldResp_2026-02-18.csv")
 
+FieldResp <- read.csv("FieldResp_2026-02-18.csv")
+
 FieldResp %>% 
   ggplot(aes(x = seconds, y = Oairsat, color = chamber)) +
   geom_point()
+
+
+
+Field_Resp_select <- FieldResp %>% 
+  mutate(Tub = ifelse(chamber <= 4, "A", "B")) %>% 
+  select(Oairsat,Temp, chamber, Date, seconds, Tub) 
+
+
+
+#Group chamber 1-3 & 5-7 separately 
+
+
 ```
 
 ### RespR Package
@@ -342,4 +356,339 @@ fits <- mydata %>%
                                                 na.action = na.omit,
                                                 lower = c(lnc = -10, E = 0, Eh = 0, Th = 0))))
 
+```
+
+# STARTING OVER
+
+### Libraries & Packages
+
+```{r}
+#install.packages("usethis")
+library("usethis") #to help use github
+#install.packages("here")
+library("here") #to help use github
+#install.packages("dplyr")
+library(tidyverse) #this will help us clean up the data 
+library(readr)
+#install.packages("respR")
+library(respR) #to convert O2 into metabolic rate 
+#install.packages("devtools")
+library(devtools)
+library(lubridate) #To turn time HH:MM:SS AM/PM into seconds passed
+```
+
+### Data Wrangling
+
+#### !! STILL NEED TO ADD IN URCHIN ID !!
+
+```{r}
+FR1_8 <- read.csv("FieldResp_2026-02-18.csv") #Read in the data
+#lets get all the column names 
+colnames(FR1_8)
+
+FR1_8 <- FR1_8 %>% #select for O ar saturation, chamber, temperautre, seconds
+  select(Oairsat, Temp,chamber, seconds) %>% 
+  #add in mass for each urchin
+  mutate( 
+    masskg = case_when(
+      chamber == 1 ~ 20.58/1000,
+      chamber == 2 ~ 13.08/1000,
+      chamber == 3 ~ 20.54/1000,
+      chamber == 4 ~ 1/1000,
+      chamber == 5 ~ 13.34/1000, 
+      chamber == 6 ~ 18.60/1000, 
+      chamber == 7 ~ 17.07/1000, 
+      chamber == 8 ~ 1/1000
+    )
+  ) %>% #Then we need to add in chamber volume 
+   mutate( 
+    ChV_ml = case_when(
+      chamber == 1 ~ 743.92,
+      chamber == 2 ~ 751.42,
+      chamber == 3 ~ 743.96,
+      chamber == 4 ~ 763.50,
+      chamber == 5 ~ 751.16, 
+      chamber == 6 ~ 745.90, 
+      chamber == 7 ~ 747.43, 
+      chamber == 8 ~ 763.50
+    )
+  ) %>% #add in a blank 1 & blank 2 column 
+  mutate(
+    blank = case_when(
+      chamber <= 4 ~ 1,
+      chamber >= 5 ~ 2
+    )
+  )
+      
+head(FR1_8) #check out the data to see if selected correctly 
+tibble(FR1_8)
+```
+
+## RespR Package
+
+### Data Wrangle
+
+```{r}
+#To use the respR package the data must have the "time" and "oxygen" in the first and second column respectively 
+
+#Rename and move time (seconds) and oxygen columns (Oairsat)
+FRresp <- FR1_8 %>% 
+  relocate(seconds, Oairsat) %>% #Moves seconds and Oairsat to front
+  rename(time = seconds, oxygen = Oairsat) #reames columns 
+
+#we need to pivot wider the data so that each urchin has it's own oxygen column
+FRwider <- FRresp %>%  
+  pivot_wider(
+     id_cols = time,
+    names_from = chamber, 
+    values_from = oxygen,
+  ) %>% #Need to move blank from chamber 4 (Blank 1) before chamber 8 (Blank 2)
+  relocate("4", .before = "8")
+```
+
+### 1. Inspect
+
+```{r}
+#First we must inspect the data for common issues 
+urchin_int <- inspect(FRresp) #this is inspecting the entire data in the long foramt where there are only two columsn for time and oxygen 
+
+#This will inspect the data for each indivudal chamber 
+inspect(FRwider, time = 1, oxygen = 2:9)
+```
+
+### 2. Calc Rate
+
+We then must calcultae the rate at which oxygen is being consumed. The respR package splits replicates up by the rows they are in. So we will use the longer format
+
+```{r}
+#Find from which row to which row is each replicate in
+#using a for loop to keep reiterating the min and max of chamber rows 
+for (i in 1:8) {
+print(paste("Chamber", i))
+  row_i <- which(FRresp$chamber == i)
+  
+  print(min(row_i))
+  #print(max(row_i))
+
+}
+# Row 1 (1:17400)
+# Row 2 (17401:34800)
+# Row 3 (34801:52200)
+# Row 4 (52201:69600)
+# Row 5 (69601:87000)
+# Row 6 (87001:104400)
+# Row 7 (104401:121800)
+# Row 8 (121801:139200)
+
+#now we can calculate oxygen consumption rates 
+urchin_rates <- calc_rate.int(FRresp,
+              starts = c(1, 17401, 34801, 52201,69601, 87001, 104401, 121801)) 
+summary(urchin_rates)
+plot(urchin_rates)
+```
+
+### 3. Background Noise 
+
+When doing respirometry, you typically run a blank chamber that does not have an organism in it to account for any background noise (respiration, photosynthesis) that may be affecting the O2 measurements that cannot be attributed to your study organism. We must calculate the oxygen consumption rates of the blanks and minus them from the actual rates from the other chambers.
+
+```{r}
+bg_insp <- inspect(FRwider, time = 1, oxygen = 8:9) # We inspect the data of only the blanks and we use this from the only the blanks 1 & 2 columns 
+bg_rate <- calc_rate.bg(bg_insp) #then we calculate the background rates
+print(bg_rate) #actual background rates were individually and then the mean 
+
+#We then use it to adjust our urchin rates
+
+urch_rates_adj <- adjust_rate(urchin_rates,
+                              by = bg_rate) %>% 
+  summary()
+```
+
+### Convert rates into units for metabolic rate 
+
+```{r}
+#We must take into consideration the mass of each urchin. so first we'll make a vector of the individual masses
+mass_vec <- c(
+  0.02058,  # urchin 1
+  0.01308,  # urchin 2
+  0.02054,  # urchin 3
+  0.001,         # blank chamber 4
+  0.01334,  # urchin 5
+  0.0186,  # urchin 6
+  0.01707,  # urchin 7
+  0.001        # blank chamber 8
+)
+
+#do the same for volume
+ volume <- c(
+      743.92, #Ch 1
+      751.42, #Ch 2
+      743.96, # Ch 3
+      763.50, # ch4
+      751.16, # Ch 5
+      745.90, # Ch 6
+      747.43, #Ch 7
+      763.50 #Ch 8 
+ )
+
+urch_rates_conv <- convert_rate(urch_rates_adj,
+                                oxy.unit = "mg/l",
+                                time.unit = "s",
+                                output.unit = "mg/h/g",
+                                mass = mass_vec,
+                                volume = volume) 
+class(urch_rates_conv)
+nrow(urch_rates_conv)
+```
+
+### Prepping for Schoolfield Model 
+
+```{r}
+#we need to add a few columns to run model 
+
+#umol.L.sec
+#umol.sec
+#Vol.L
+#blank.rate	
+#umol.sec.corr
+#umol.cm2.hr
+#Rate.ln
+
+
+```
+
+### Oxygen Consumption
+
+```{r}
+FRplot <- FRresp %>% 
+  ggplot(aes(
+    x= Temp, y = oxygen
+  )) +
+  geom_point() 
+FRplot
+
+FRplot2 <- FRresp_grouped %>% 
+  ggplot(aes(
+    x= Temp, y = oxygen_rate
+  )) +
+  geom_point() 
+FRplot2
+```
+
+### Let's add the calculations and adjustments to the FRresp
+
+```{r}
+#going to group by blank > chamber > time 
+
+FRresp_grouped <- FRresp %>%
+  arrange(blank, chamber, time) %>%   # sort first by blank,chamber, then time
+  group_by(blank, chamber) %>%        # calculate rates within each replicate
+  mutate(umol.sec = c(NA, diff(oxygen) / diff(time))) #%>% 
+ # ungroup() %>%
+ # mutate(blank.rate = ifelse(chamber == 4, umol.sec, NA))
+
+#Then add the blank calc rate 
+df <- FRresp_grouped %>%
+  group_by(blank, time) %>%
+  mutate(blank_rate = if(any(chamber == 4)) umol.sec[chamber == 4] else NA_real_) %>%
+  ungroup()
+
+
+#Add in the blank rates column 
+df2 <- FRresp_grouped %>%
+  group_by(blank, time) %>%
+  mutate(
+    blank_rate = if(any(chamber == 4 & blank == 1)) umol.sec[chamber == 4 & blank == 1] else
+                 if(any(chamber == 8 & blank == 2)) umol.sec[chamber == 8 & blank == 2] else NA_real_
+  ) %>%
+  ungroup()
+
+# Row 1 (1:17400)
+# Row 2 (17401:34800)
+# Row 3 (34801:52200)
+# Row 4 (52201:69600)
+# Row 5 (69601:87000)
+# Row 6 (87001:104400)
+# Row 7 (104401:121800)
+# Row 8 (121801:139200)
+
+#mutate(blank.rate = umol.sec[chamber == 4][1]) #%>%  # pick chamber 4 as reference(
+
+#Add in the adjusted calculated rates column 
+df2 <- df2 %>% 
+  mutate(umol.sec.corr = umol.sec - blank_rate) %>% 
+  mutate(Oseckg = umol.sec.corr/masskg)
+write.csv(df2, "FRespcalculated.csv") #save it as a new csv
+
+#remove NAs, mean for temperature step, group chamber and temp
+tpc_data <- df2 %>%
+  filter(!is.na(umol.sec.corr)) %>%
+  group_by(chamber, Temp) %>%
+  summarise(rate = mean(umol.sec.corr), .groups = "drop")
+
+tpc_data <- tpc_data %>%
+  mutate(rate_mass = rate / unique(df2$masskg))  
+  
+filter(tpc_data, 4|8)
+
+#install.packages("rTPC")
+library(rTPC)
+library(nls.multstart)
+library(dplyr)
+library(ggplot2)
+#parameter estimates 
+start_vals <- get_start_vals(tpc_data$Temp, tpc_data$rate, 
+                             model_name = "sharpeschoolfull_1981")
+find("get_start_vals") #confirm it's loaded
+
+#repeat for the rate accounted with mass 
+get_start_vals(tpc_data$Temp, tpc_data$rate_mass,
+               model_name = "sharpeschoolfull_1981")
+start_vals["el"] <- 1 #fix those categorical values
+
+#fit the model 
+mod <- nls_multstart(
+  rate_mass ~ sharpeschoolfull_1981(
+    temp = Temp,
+    r_tref,
+    e,
+    el,
+    tl,
+    eh,
+    th,
+    tref = 20
+  ),
+  data = tpc_data,
+  iter = c(3,3,3,3,3,3),
+  start_lower = start_vals - 10,
+  start_upper = start_vals + 10,
+  lower = get_lower_lims(tpc_data$Temp, tpc_data$rate_mass,
+                         model_name = "sharpeschoolfull_1981"),
+  upper = get_upper_lims(tpc_data$Temp, tpc_data$rate_mass,
+                         model_name = "sharpeschoolfull_1981"),
+  supp_errors = "Y"
+)
+#Check the fit 
+summary(mod)
+#generate predictions for plotting 
+preds <- data.frame(
+  Temp = seq(min(tpc_data$Temp), max(tpc_data$Temp), length.out = 100)
+)
+preds <- broom::augment(mod, newdata = preds)
+
+#plot TPC 
+ggplot() +
+  geom_point(data = tpc_data, aes(Temp, rate_mass)) +
+  geom_line(data = preds, aes(Temp, .fitted), color = "blue") +
+  theme_bw()
+
+summary(tpc_data$rate_mass)
+
+summary(tpc_data)
+summary(mod)
+
+#RESPR now we can calculate oxygen consumption rates 
+#urchin_rates <- calc_rate.int(FRresp,
+              starts = c(1:600 17401, 34801, 52201,69601, 87001, #104401, 121801)) 
+#summary(urchin_rates)
+#plot(urchin_rates)
 ```
