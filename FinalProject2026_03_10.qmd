@@ -730,7 +730,7 @@ summary(mod)
 delta_O2 <- O2_start - O2_end
 
 # metabolic rate
-MR <- (delta_O2 / time_interval) * chamber_volume
+MR <- (Oairsat2 / timepassed) * ChV_ml
 
 freaky <- FR1_8 %>% #select for O ar saturation, chamber, temperautre, seconds
   select(Oairsat, Temp,chamber, time_parsed, seconds) %>% 
@@ -775,11 +775,30 @@ tibble(freaky)
 # change in oxygen
 FKEY_oxy_chg  <- freaky %>%
   mutate(
-    delta_O2 = Oairsat - Oairsat2,
+    delta_O2 = Oairsat2,
     metabolic_rate = (delta_O2 / timepassed) * ChV_ml
   )
+```
 
+### Now we can calculate MR
 
+```{r}
+#account for mass
+FKEY_mass <- FKEY_oxy_chg %>%
+  mutate(
+    mass_specific_MR = metabolic_rate / masskg
+  )
+
+#need the slope of oxygen decline 
+model <- lm(Oairsat ~ seconds, data = FKEY_mass)
+
+slope <- coef(model)[2]
+
+#add MR as a column
+FKEY_MR <- FKEY_mass %>% 
+  mutate(metabolic_rate = slope * ChV_ml
+  )
+head(FKEY_MR)
 
 ```
 
@@ -810,46 +829,34 @@ FKEY_adj <- FKEY_oxy_chg %>%
       TRUE ~ NA_real_
     )
   )
+
+#Minus the MR of the background 
+FKEY_adj <- FKEY_adj %>% 
+  mutate(MR_corr = metabolic_rate - blank_rate) %>% 
+  filter(!chamber == "4" | !chamber == "8") 
 ```
 
-### Now we can calculate MR
+#### Quick Visualizations
 
 ```{r}
-#account for mass
-FKEY_mass <- FKEY_oxy_chg %>%
-  mutate(
-    mass_specific_MR = metabolic_rate / masskg
-  )
-
-#need the slope of oxygen decline 
-model <- lm(Oairsat ~ seconds, data = FKEY_mass)
-
-slope <- coef(model)[2]
-
-#add MR as a column
-FKEY_MR <- FKEY_mass %>% 
-  mutate(metabolic_rate = slope * ChV_ml
-  )
-head(FKEY_MR)
-
-
+MRplot <- FKEY_adj %>% 
+  ggplot(aes(x= Temp, y = MR_corr, color = chamber)) +
+  geom_point()
 ```
 
 ### 
 
 ### Blanks Data 
 
-```{r}
+```{r eva; = FALSE}
 #make a new data frame with only the blanks chamber
 blank_data <- FKEY_MR %>%
   filter(chamber == 4 | chamber == 8)
 
-
-
 #adjust for background rate 
 blank_model <- lm(Oairsat ~ seconds, data = blank_data)
-
 blank_slope <- coef(blank_model)[2]
+
 
 
 ```
@@ -857,10 +864,32 @@ blank_slope <- coef(blank_model)[2]
 ### Model
 
 ```{r}
+#remove Nas
+FKEY_adj_na <- FKEY_adj %>%
+  filter(is.finite(MR_corr), is.finite(Temp))
+
+#fill in missing values
+start_vals["el"] <- 1
+start_vals["eh"] <- 1
+
+#recalculate starting values
+start_vals <- get_start_vals(
+  FKEY_adj_na$Temp,
+  FKEY_adj_na$MR_corr,
+  model_name = "sharpeschoolfull_1981"
+)
+
+#check vals
+start_vals
+is.finite(start_vals)
+
+#check for negative or zero rates
+summary(FKEY_adj_na$MR_corr)
+
 #fit the model 
 mod <- nls_multstart(
-  mean_rate ~ sharpeschoolfull_1981(
-    temp = temp_bin,
+  MR_corr ~ sharpeschoolfull_1981(
+    temp = Temp,
     r_tref,
     e,
     el,
@@ -869,16 +898,17 @@ mod <- nls_multstart(
     th,
     tref = 20
   ),
-  data = tpc_data2,
+  data = FKEY_adj_na,
   iter = c(3,3,3,3,3,3),
   start_lower = start_vals - 10,
   start_upper = start_vals + 10,
-  lower = get_lower_lims(tpc_data2$temp_bin, tpc_data2$mean_rate,
+  lower = get_lower_lims(FKEY_adj_na$Temp, FKEY_adj_na$MR_corr,
                          model_name = "sharpeschoolfull_1981"),
-  upper = get_upper_lims(tpc_data2$temp_bin, tpc_data2$mean_rate,
+  upper = get_upper_lims(FKEY_adj_na$Temp, FKEY_adj_na$MR_corr,
                          model_name = "sharpeschoolfull_1981"),
   supp_errors = "Y"
 )
+
 #Check the fit 
 summary(mod)
 #generate predictions for plotting 
