@@ -828,6 +828,25 @@ FKEY_adj <- FKEY_oxy_chg %>%
 FKEY_adj <- FKEY_adj %>% 
   mutate(O2.sec.corr = Oairsat2 - blank_rate) %>% 
   filter(!chamber == "4" | !chamber == "8") 
+
+#find the mml cm2 hr
+FKEY_adj_hr <- FKEY_adj %>% 
+  mutate(umol.cm2.hr = (O2.sec.corr*3600)/masskg
+  )
+
+#remove all na rows
+FKEY_hr_na<- FKEY_adj_hr %>% 
+  filter(is.finite(blank_rate))
+
+
+#log the rates
+FKEY_log <- FKEY_hr_na %>% 
+mutate(rate.in = log(umol.cm2.hr+0.1))
+
+#filter out NAs
+FKEY_log_clean <- FKEY_log %>% 
+  filter(is.finite(rate.in))
+
 ```
 
 ### Now we can calculate MR
@@ -872,15 +891,15 @@ MRplot <- FKEY_avg %>%
   geom_point()
 MRplot
 
-plot(FKEY_oxy_chg$Temp,
-     FKEY_oxy_chg$metabolic_rate,
+plot(FKEY_log_clean$Temp,
+     FKEY_log_clean$rate.in,
      pch = 16,
      xlab = "Temperature (°C)",
      ylab = "Metabolic Rate",
      main = "TPC diagnostic plot")
 
-plot(FKEY_oxy_chg$Temp,
-     log(FKEY_oxy_chg$metabolic_rate),
+plot(FKEY_log_clean$Temp,
+     log(FKEY_log_clean$rate.in),
      pch = 16,
      xlab = "Temperature",
      ylab = "log(Metabolic Rate)")
