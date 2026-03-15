@@ -776,33 +776,11 @@ tibble(freaky)
 FKEY_oxy_chg  <- freaky %>%
   mutate(
     delta_O2 = Oairsat2,
-    metabolic_rate = (delta_O2 / timepassed) * ChV_ml
+    metabolic_rate = ((delta_O2 / masskg * timepassed) 
   )
 ```
 
-### Now we can calculate MR
-
-```{r}
-#account for mass
-FKEY_mass <- FKEY_oxy_chg %>%
-  mutate(
-    mass_specific_MR = metabolic_rate / masskg
-  )
-
-#need the slope of oxygen decline 
-model <- lm(Oairsat ~ seconds, data = FKEY_mass)
-
-slope <- coef(model)[2]
-
-#add MR as a column
-FKEY_MR <- FKEY_mass %>% 
-  mutate(metabolic_rate = slope * ChV_ml
-  )
-head(FKEY_MR)
-
-```
-
-### Struggles to calculate background rate 
+### calculate background rate 
 
 ```{r}
 #this is where we need to adjust for the rate 
@@ -812,12 +790,12 @@ head(FKEY_MR)
 #Get the blank rates 
 blank1_rate <- FKEY_oxy_chg %>%
   filter(chamber == 4) %>%
-  pull(metabolic_rate) %>%
+  pull(delta_O2) %>%
   first()
 
 blank2_rate <- FKEY_oxy_chg %>%
   filter(chamber == 8) %>%
-  pull(metabolic_rate) %>%
+  pull(delta_O2) %>%
   first()
 
 #Create the blank_rate column 
@@ -832,16 +810,51 @@ FKEY_adj <- FKEY_oxy_chg %>%
 
 #Minus the MR of the background 
 FKEY_adj <- FKEY_adj %>% 
-  mutate(MR_corr = metabolic_rate - blank_rate) %>% 
+  mutate(O2.sec.corr = delta_O2 - blank_rate) %>% 
   filter(!chamber == "4" | !chamber == "8") 
+```
+
+### Now we can calculate MR
+
+```{r}
+#recalculate MR
+FKEY_MR  <- FKEY_adj %>%
+  mutate(
+    delta_O2 = Oairsat2,
+    metabolic_rate = (O2.sec.corr / masskg * timepassed) 
+  )
+
+#now lets group it by temperature 
+FKEY_avg <- FKEY_MR %>%
+  group_by(Temp) %>%
+  summarise(metabolic_rate = mean(metabolic_rate), .groups = "drop")
+
+
+#account for mass
+#FKEY_mass <- FKEY_oxy_chg %>%
+ # mutate(
+  #  mass_specific_MR = metabolic_rate / masskg
+  #)
+
+#need the slope of oxygen decline 
+#model <- lm(Oairsat ~ seconds, data = FKEY_mass)
+
+#slope <- coef(model)[2]
+
+#add MR as a column
+#FKEY_MR <- FKEY_mass %>% 
+ # mutate(metabolic_rate = slope * ChV_ml
+ # )
+#head(FKEY_MR)
 ```
 
 #### Quick Visualizations
 
 ```{r}
-MRplot <- FKEY_adj %>% 
-  ggplot(aes(x= Temp, y = MR_corr, color = chamber)) +
+MRplot <- FKEY_avg %>% 
+  ggplot(aes(x= Temp, y = metabolic_rate)) +
   geom_point()
+MRplot
 ```
 
 ### 
@@ -865,17 +878,17 @@ blank_slope <- coef(blank_model)[2]
 
 ```{r}
 #remove Nas
-FKEY_adj_na <- FKEY_adj %>%
-  filter(is.finite(MR_corr), is.finite(Temp))
+FKEY_MR <- FKEY_MR %>%
+  filter(is.finite(metabolic_rate), is.finite(Temp))
 
 #fill in missing values
 start_vals["el"] <- 1
-start_vals["eh"] <- 1
+#start_vals["eh"] <- 1
 
 #recalculate starting values
 start_vals <- get_start_vals(
-  FKEY_adj_na$Temp,
-  FKEY_adj_na$MR_corr,
+  FKEY_MR$Temp,
+  FKEY_MR$metabolic_rate,
   model_name = "sharpeschoolfull_1981"
 )
 
@@ -884,11 +897,11 @@ start_vals
 is.finite(start_vals)
 
 #check for negative or zero rates
-summary(FKEY_adj_na$MR_corr)
+summary(FKEY_MR$metabolic_rate)
 
 #fit the model 
 mod <- nls_multstart(
-  MR_corr ~ sharpeschoolfull_1981(
+  metabolic_rate ~ sharpeschoolfull_1981(
     temp = Temp,
     r_tref,
     e,
@@ -898,13 +911,13 @@ mod <- nls_multstart(
     th,
     tref = 20
   ),
-  data = FKEY_adj_na,
+  data = FKEY_MR,
   iter = c(3,3,3,3,3,3),
   start_lower = start_vals - 10,
   start_upper = start_vals + 10,
-  lower = get_lower_lims(FKEY_adj_na$Temp, FKEY_adj_na$MR_corr,
+  lower = get_lower_lims(FKEY_MR$Temp, FKEY_MR$metabolic_rate,
                          model_name = "sharpeschoolfull_1981"),
-  upper = get_upper_lims(FKEY_adj_na$Temp, FKEY_adj_na$MR_corr,
+  upper = get_upper_lims(FKEY_MR$Temp, FKEY_MR$metabolic_rate,
                          model_name = "sharpeschoolfull_1981"),
   supp_errors = "Y"
 )
