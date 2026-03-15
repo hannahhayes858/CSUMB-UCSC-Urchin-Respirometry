@@ -35,7 +35,8 @@ The way that LoLigo has give us the data is a separate CSV for each chamber, and
 
 ```{r}
 #Field Resp Chamber 1 
-FRCh1 <- read.csv("/Users/hannahhayes858/Desktop/JJG x HH Collab/Data/FieldRep_021826-2/UTF/FieldRep_021826_Restingchamber1_218202610216_UTF.csv")
+file.choose()
+FRCh1 <- read.csv("/Users/hannahhayes858/Desktop/JJG x HH Collab/Rcode/CSUMB-UCSC-Urchin-Respirometry/Data/FieldRep_021826-2/UTF/FieldRep_021826_Restingchamber1_218202610216_UTF.csv")
 FRCh1 #Check if it read in correctly
 
   ##We're going to overwrite FRCh1 so it includes the chamber column
@@ -44,7 +45,8 @@ FRCh1 <- FRCh1 %>%
  mutate(chamber = 1, Date = "2026-02-18")
 
 #Field Resp Chamber 2 
-FRCh2 <- read.csv("/Users/hannahhayes858/Desktop/JJG x HH Collab/Data/FieldRep_021826-2/UTF/FieldRep_021826_Restingchamber2_218202610216_UTF.csv")
+file.choose()
+FRCh2 <- read.csv("/Users/hannahhayes858/Desktop/JJG x HH Collab/Rcode/CSUMB-UCSC-Urchin-Respirometry/Data/FieldRep_021826-2/UTF/FieldRep_021826_Restingchamber2_218202610216_UTF.csv")
 FRCh2 #Check if it read in correctly
 
   ##We're going to overwrite FRCh1 so it includes the chamber column
@@ -53,7 +55,7 @@ FRCh2 <- FRCh2 %>%
  mutate(chamber = 2, Date = "2026-02-18")
 
 #Field Resp Chamber 3
-FRCh3 <- read.csv("/Users/hannahhayes858/Desktop/JJG x HH Collab/Data/FieldRep_021826-2/UTF/FieldRep_021826_Restingchamber3_218202610216_UTF.csv")
+FRCh3 <- read.csv("~/Desktop/JJG x HH Collab/Rcode/Data/FieldRep_021826-2/UTF/FieldRep_021826_Restingchamber3_218202610216_UTF.csv")
 FRCh3 #Check if it read in correctly
 
   ##We're going to overwrite FRCh1 so it includes the chamber column
@@ -61,7 +63,7 @@ FRCh3 <- FRCh3 %>%
  mutate(chamber = 3, Date = "2026-02-18")
 
 #Field Resp Chamber 4
-FRCh4 <- read.csv("/Users/hannahhayes858/Desktop/JJG x HH Collab/Data/FieldRep_021826-2/UTF/FieldRep_021826_Restingchamber4_218202610216_UTF.csv")
+FRCh4 <- read.csv("~/Desktop/JJG x HH Collab/Rcode/Data/FieldRep_021826-2/UTF/FieldRep_021826_Restingchamber4_218202610216_UTF.csv")
 FRCh4 #Check if it read in correctly
 
   ##We're going to overwrite FRCh1 so it includes the chamber column
@@ -69,7 +71,7 @@ FRCh4 <- FRCh4 %>%
  mutate(chamber = 4, Date = "2026-02-18")
 
 #Field Resp Chamber 5
-FRCh5 <- read.csv("/Users/hannahhayes858/Desktop/JJG x HH Collab/Data/FieldRep_021826-2/UTF/FieldRep_021826_Restingchamber5_218202610216_UTF.csv")
+FRCh5 <- read.csv("~/Desktop/JJG x HH Collab/Rcode/Data/FieldRep_021826-2/UTF/FieldRep_021826_Restingchamber5_218202610216_UTF.csv")
 FRCh5 #Check if it read in correctly
 
   ##We're going to overwrite FRCh1 so it includes the chamber column
@@ -77,7 +79,7 @@ FRCh5 <- FRCh5 %>%
  mutate(chamber = 5, Date = "2026-02-18")
 
 #Field Resp Chamber 6
-FRCh6 <- read.csv("/Users/hannahhayes858/Desktop/JJG x HH Collab/Data/FieldRep_021826-2/UTF/FieldRep_021826_Restingchamber6_218202610216_UTF.csv")
+FRCh6 <- read.csv("~/Desktop/JJG x HH Collab/Rcode/Data/FieldRep_021826-2/UTF/FieldRep_021826_Restingchamber6_218202610216_UTF.csv")
 FRCh6 #Check if it read in correctly
 
   ##We're going to overwrite FRCh1 so it includes the chamber column
@@ -85,7 +87,7 @@ FRCh6 <- FRCh6 %>%
  mutate(chamber = 6, Date = "2026-02-18")
 
 #Field Resp Chamber 7
-FRCh7 <- read.csv("/Users/hannahhayes858/Desktop/JJG x HH Collab/Data/FieldRep_021826-2/UTF/FieldRep_021826_Restingchamber7_218202610216_UTF.csv")
+FRCh7 <- read.csv("~/Desktop/JJG x HH Collab/Rcode/Data/FieldRep_021826-2/UTF/FieldRep_021826_Restingchamber7_218202610216_UTF.csv")
 FRCh7 #Check if it read in correctly
 
   ##We're going to overwrite FRCh1 so it includes the chamber column
@@ -93,7 +95,7 @@ FRCh7 <- FRCh7 %>%
  mutate(chamber = 7, Date = "2026-02-18")
 
 #Field Resp Chamber 8
-FRCh8 <- read.csv("/Users/hannahhayes858/Desktop/JJG x HH Collab/Data/FieldRep_021826-2/UTF/FieldRep_021826_Restingchamber8_218202610216_UTF.csv")
+FRCh8 <- read.csv("~/Desktop/JJG x HH Collab/Rcode/Data/FieldRep_021826-2/UTF/FieldRep_021826_Restingchamber8_218202610216_UTF.csv")
 FRCh8 #Check if it read in correctly
 
   ##We're going to overwrite FRCh1 so it includes the chamber column
@@ -257,13 +259,15 @@ FR_sec <- FR_Time %>%
 FR_sec
 write.csv(FR_sec, "FR_sec.csv")
 file.choose()
-FR_2 <- read.csv("/Users/hannahhayes858/Desktop/JJG x HH Collab/Data/FieldRep_021826-2/UTF/FR.csv")
+library(readr)
+FR_2 <- read_csv("Data/FieldRep_021826-2/UTF/FR.csv")
+#FR_2 <- read.csv("/Users/hannahhayes858/Desktop/JJG x HH Collab/Data/FieldRep_021826-2/UTF/FR.csv")
 
 Chamber1 <- FR_2 %>% #we need to get rid of salinity -> TempComp
   filter(chamber == 1) %>% 
   select(-(Salinity:TempComp)) %>% 
   filter(Intermittent_mode == "RITM") %>% 
-  select(O_perecent_airsat:Temperature_compensation_C, chamber:seconds)
+  select(Intermittent_phase, O_perecent_airsat:Temperature_compensation_C, chamber:seconds)
 
 
 Chamber2_8 <- FR_2 %>% 
@@ -271,7 +275,7 @@ Chamber2_8 <- FR_2 %>%
   select(-(Salinity_N:Temperature_compensation_C)) %>% 
   relocate(Salinity:TempComp, .before = PowerX4_EAC7_voltage_V_flush) %>% 
   filter(Intermittent_mode == "RITM") %>% 
-  select(Oairsat:TempComp, chamber:seconds)
+  select(Intermittent_phase, Oairsat:TempComp, chamber:seconds)
 
 colnames(Chamber1) <- colnames(Chamber2_8) #renaming all of the columns in the Chamber1 dataframe with the columns names from Chamber2_8
 FieldResp <- rbind(Chamber1, Chamber2_8) #Combining the two dataframes as FieldResp
@@ -287,7 +291,7 @@ FieldResp %>%
 
 Field_Resp_select <- FieldResp %>% 
   mutate(Tub = ifelse(chamber <= 4, "A", "B")) %>% 
-  select(Oairsat,Temp, chamber, Date, seconds, Tub) 
+  select(Intermittent_phase, Oairsat,Temp, chamber, Date, seconds, Tub) 
 
 
 
@@ -998,4 +1002,10 @@ summary(tpc_data$rate_mass)
 
 summary(tpc_data)
 summary(mod)
+```
+
+### I had a dream, lets calculate oxygen consumed for every
+
+```{r}
+
 ```
