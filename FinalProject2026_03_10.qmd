@@ -768,6 +768,7 @@ freaky <- FR1_8 %>% #select for O ar saturation, chamber, temperautre, seconds
   mutate(timepassed = 1) %>% 
   #need to add a column for change in oxygen o2 end 
   mutate(Oairsat2 = c(NA, diff(Oairsat) / diff(seconds))) 
+   
       
 head(freaky) #check out the data to see if selected correctly 
 tibble(freaky)
@@ -778,23 +779,8 @@ FKEY_oxy_chg  <- freaky %>%
     delta_O2 = Oairsat2,
     metabolic_rate = ((delta_O2 / masskg * timepassed) 
   )
-  
-#Recalculate metabolic rate using the boltzman equation
-#Tc <- 273.15 + Temp #mutate this into a column 
-k <- 8.62e-5
-e <- 2.71
-E <- 0.63
-c <-e^20
-
-FKEY_oxy_chg <- freaky %>% 
-  mutate(TempK = Temp + 273.15) %>% 
-  mutate(metabolic_rate = c*masskg^(3/4)*e^(-E/(k*TempK)))
 
 ```
-
-### New plan
-
-The plan. On this commit we are going to calculate metabolic rate for everyone. We're going to use a different equation for metabolic rate
 
 ### calculate background rate 
 
@@ -828,6 +814,27 @@ FKEY_adj <- FKEY_oxy_chg %>%
 FKEY_adj <- FKEY_adj %>% 
   mutate(O2.sec.corr = Oairsat2 - blank_rate) %>% 
   filter(!chamber == "4" | !chamber == "8") 
+################################################################################
+#lets try grouping it here 
+FKEY_adj_group <- FKEY_adj %>% 
+   filter(is.finite(O2.sec.corr)) %>% 
+  mutate(Temp = round(Temp, 1)) %>%
+  group_by(Temp, chamber, masskg) %>%
+  summarise(O2.sec.corr.mean = mean(O2.sec.corr)) 
+
+#find the mml cm2 hr
+FKEY_adj_group_hr <- FKEY_adj_group %>% 
+  mutate(umol.cm2.hr = (O2.sec.corr.mean*3600)/masskg
+  ) %>% 
+  filter(umol.cm2.hr > 0)
+
+#log the rates
+FKEY_adj_group_log <- FKEY_adj_group_hr %>% 
+mutate(rate.in = log(umol.cm2.hr+0.1))
+
+FKEY_adj_group_clean <- FKEY_adj_group_log %>% 
+  filter(is.finite(rate.in))
+#########################################################################################
 
 #find the mml cm2 hr
 FKEY_adj_hr <- FKEY_adj %>% 
@@ -850,7 +857,6 @@ mutate(rate.in = log(umol.cm2.hr+0.1))
 #filter out NAs
 FKEY_log_clean <- FKEY_log %>% 
   filter(is.finite(rate.in))
-
 ```
 
 ### Now we can calculate MR
@@ -895,15 +901,15 @@ MRplot <- FKEY_grouped %>%
   geom_point()
 MRplot
 
-plot(FKEY_grouped $Temp,
-     FKEY_grouped $metabolic_rate,
+plot(FKEY_adj_group_log $Temp,
+     FKEY_adj_group_log $rate.in,
      pch = 16,
      xlab = "Temperature (°C)",
      ylab = "Metabolic Rate",
      main = "TPC diagnostic plot")
 
-plot(FKEY_log_clean$Temp,
-     log(FKEY_log_clean$rate.in),
+plot(FKEY_adj_group_hr$Temp,
+     log(FKEY_adj_group_hr$umol.cm2.hr),
      pch = 16,
      xlab = "Temperature",
      ylab = "log(Metabolic Rate)")
