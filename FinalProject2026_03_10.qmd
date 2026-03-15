@@ -778,7 +778,23 @@ FKEY_oxy_chg  <- freaky %>%
     delta_O2 = Oairsat2,
     metabolic_rate = ((delta_O2 / masskg * timepassed) 
   )
+  
+#Recalculate metabolic rate using the boltzman equation
+#Tc <- 273.15 + Temp #mutate this into a column 
+k <- 8.62e-5
+e <- 2.71
+E <- 0.63
+c <-e^20
+
+FKEY_oxy_chg <- freaky %>% 
+  mutate(TempK = Temp + 273.15) %>% 
+  mutate(metabolic_rate = c*masskg^(3/4)*e^(-E/(k*TempK)))
+
 ```
+
+### New plan
+
+The plan. On this commit we are going to calculate metabolic rate for everyone. We're going to use a different equation for metabolic rate
 
 ### calculate background rate 
 
@@ -790,12 +806,12 @@ FKEY_oxy_chg  <- freaky %>%
 #Get the blank rates 
 blank1_rate <- FKEY_oxy_chg %>%
   filter(chamber == 4) %>%
-  pull(delta_O2) %>%
+  pull(Oairsat2) %>%
   first()
 
 blank2_rate <- FKEY_oxy_chg %>%
   filter(chamber == 8) %>%
-  pull(delta_O2) %>%
+  pull(Oairsat2) %>%
   first()
 
 #Create the blank_rate column 
@@ -810,7 +826,7 @@ FKEY_adj <- FKEY_oxy_chg %>%
 
 #Minus the MR of the background 
 FKEY_adj <- FKEY_adj %>% 
-  mutate(O2.sec.corr = delta_O2 - blank_rate) %>% 
+  mutate(O2.sec.corr = Oairsat2 - blank_rate) %>% 
   filter(!chamber == "4" | !chamber == "8") 
 ```
 
@@ -855,6 +871,19 @@ MRplot <- FKEY_avg %>%
   ggplot(aes(x= Temp, y = metabolic_rate)) +
   geom_point()
 MRplot
+
+plot(FKEY_oxy_chg$Temp,
+     FKEY_oxy_chg$metabolic_rate,
+     pch = 16,
+     xlab = "Temperature (°C)",
+     ylab = "Metabolic Rate",
+     main = "TPC diagnostic plot")
+
+plot(FKEY_oxy_chg$Temp,
+     log(FKEY_oxy_chg$metabolic_rate),
+     pch = 16,
+     xlab = "Temperature",
+     ylab = "log(Metabolic Rate)")
 ```
 
 ### 
