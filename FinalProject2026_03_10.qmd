@@ -838,11 +838,15 @@ FKEY_adj_hr <- FKEY_adj %>%
 FKEY_hr_na<- FKEY_adj_hr %>% 
   filter(is.finite(blank_rate))
 
+#group it by temp 
+FKEY_grouped <- FKEY_hr_na %>%
+  group_by(Temp) %>%
+  summarise(metabolic_rate = mean(umol.cm2.hr), .groups = "drop") %>% 
+  filter(is.finite(metabolic_rate))
 
 #log the rates
 FKEY_log <- FKEY_hr_na %>% 
 mutate(rate.in = log(umol.cm2.hr+0.1))
-
 #filter out NAs
 FKEY_log_clean <- FKEY_log %>% 
   filter(is.finite(rate.in))
@@ -886,13 +890,13 @@ FKEY_avg <- FKEY_MR %>%
 #### Quick Visualizations
 
 ```{r}
-MRplot <- FKEY_avg %>% 
+MRplot <- FKEY_grouped %>% 
   ggplot(aes(x= Temp, y = metabolic_rate)) +
   geom_point()
 MRplot
 
-plot(FKEY_log_clean$Temp,
-     FKEY_log_clean$rate.in,
+plot(FKEY_grouped $Temp,
+     FKEY_grouped $metabolic_rate,
      pch = 16,
      xlab = "Temperature (°C)",
      ylab = "Metabolic Rate",
