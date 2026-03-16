@@ -1426,3 +1426,11 @@ fit_simple <-
 summary(fit_simple)
 plot(fit_simple)
 ```
+
+### Let's visualize the data
+
+```{r}
+model <- TPCdata %>% 
+  ggplot(aes(x = temp_bin, y = rate)) +
+  geom_point() 
+```
