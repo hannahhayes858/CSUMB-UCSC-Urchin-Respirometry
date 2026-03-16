@@ -1,9 +1,17 @@
 ---
 title: "Final Project DS4EEB"
 author: "Hannah Hayes"
-format: html
+format: pdf
 editor: visual
 ---
+
+## Technique to answer question
+
+In order to map a thermal performance curve we will perform respirometry trails. An urchin will be placed into a airtight container, with an oxygen sensor to capture oxygen saturation for a designated amount of time.
+
+## Hypothesis
+
+We hypothesize that urchins will have a much higher thermal optima than what they are experiencing in the natural environment. We hypothesize this due to urchin's ability to suppress their metabolic rate under stressful conditions.
 
 ## Data Wrangling
 
@@ -261,9 +269,8 @@ head(Field_Resp_select)
 Field_Reskp_grouped <- Field_Resp_select %>%
   arrange(Tub, chamber, Time) %>%   # sort first by blank,chamber, then time
   group_by(Tub, chamber) %>%        # calculate rates within each replicate
-  mutate(umol.sec = c(NA, diff(Oairsat) / diff(seconds))) #%>% 
- # ungroup() %>%
- # mutate(blank.rate = ifelse(chamber == 4, umol.sec, NA)) 
+  mutate(umol.sec = c(NA, diff(Oairsat) / diff(seconds))) 
+
 ```
 
 ### Blanks
@@ -378,19 +385,21 @@ write.csv(aggy_log, "TPCdata.csv")
 
 ```{r}
 #logged Rate vs temp bin 
-plot(aggy_log$temp_bin,
+DGplot1 <-plot(aggy_log$temp_bin,
      aggy_log$rate,
      pch = 16,
      xlab = "Temperature (°C)",
      ylab = "Metabolic Rate",
      main = "TPC diagnostic plot")
+ggsave("~/Desktop/JJG x HH Collab/Rcode/CSUMB-UCSC-Urchin-Respirometry/output/figures/DGplot1.png", plot = DGplot1)
 
-plot(aggy_log$temp_bin,
+DGplot2 <- plot(aggy_log$temp_bin,
      aggy_log$umol_cm2_hr,
      pch = 16,
      xlab = "Temperature (°C)",
      ylab = "Metabolic Rate",
      main = "TPC diagnostic plot")
+ggsave("~/Desktop/JJG x HH Collab/Rcode/CSUMB-UCSC-Urchin-Respirometry/output/figures/DGplot2.png", plot = DGplot2)
 ```
 
 Really cool! So It's giving us a general TPC, but there is a decent amount of noise and not a clear drop off. I believe we need to ramp the urchins up to a higher temperature to get the end of the TPC.
@@ -412,6 +421,7 @@ model <- TPCdata %>%
   ggplot(aes(x = temp_bin, y = rate)) +
   geom_point() 
 model
+ggsave("~/Desktop/JJG x HH Collab/Rcode/CSUMB-UCSC-Urchin-Respirometry/output/figures/model.png", plot = model)
 ```
 
 ### Is it normal data?
@@ -421,12 +431,16 @@ hist <- TPCdata %>%
   ggplot(aes(x = rate)) +
   geom_histogram()
 hist
+ggsave("~/Desktop/JJG x HH Collab/Rcode/CSUMB-UCSC-Urchin-Respirometry/output/figures/hist.png", plot = hist)
 
 hist2 <- TPCdata %>% 
   ggplot(aes(x = umol_cm2_hr)) +
   geom_histogram()
-hist2
+hist2 
+ggsave("~/Desktop/JJG x HH Collab/Rcode/CSUMB-UCSC-Urchin-Respirometry/output/figures/hist2.png", plot = hist2)
 ```
+
+The data looks like I could be potentially skewed. Let's run two models and see which one represents better. We are going to run a BRMS model (assumed normal distribution) and a gamma model (for data that is skewed positively.
 
 ### BRMS
 
@@ -438,7 +452,7 @@ fit_simple <-
       rate ~ 1 + temp_bin,
       iter = 2000, warmup = 1000, chains = 4, cores = 4,
       seed = 4,
-      file = "output/fit_simple")
+      file = "output/models/fit_simple")
 
 summary(fit_simple)
 plot(fit_simple)
@@ -448,21 +462,23 @@ plot(fit_simple)
 
 ```{r}
 fit_gamma <- 
-  brm(data = TPCdata, # Give the model the data
-      # Choose a gaussian (normal) distribution
+  brm(data = TPCdata, # read in the data
       family = Gamma(),
-      # Specify the model here. 
       rate ~ 1 + temp_bin,
-      # Here's where you specify parameters for executing the Markov chains
-      # We're using similar to the defaults, except we set cores to 4 so the analysis runs faster than the default of 1
       iter = 2000, warmup = 1000, chains = 4, cores = 4,
-      # Setting the "seed" determines which random numbers will get sampled.
-      # In this case, it makes the randomness of the Markov chain runs reproducible 
-      # (so that both of us get the exact same results when running the model)
       seed = 4,
-      # Save the fitted model object as output - helpful for reloading in the output later
-      file = "output/fit_gamma")
+      file = "output/models/fit_gamma")
 
 summary(fit_gamma)
 plot(fit_gamma)
 ```
+
+Looking at the summaries from both models, the BRMs model has estimate that is very similar to what we are seeing with the data. The compatibility intervals does not go through zero so we can assume that temperature does follow a trend with metabolic rate.
+
+Both models ran correctly because there is a Rhat of 1, unimodal posterior distributions, flat, overlapping and jagged chains.
+
+A limitation of this model is that I wasn't able to fit the raw rates into the model and use a metabolic rate to get a nice smooth curve.
+
+## Conclusions
+
+Looking at the curve above we can conclude that urchins thermal optima lies around 35 degrees celsius. We haven't captured the CTmax and need to do further ramping to capture the other end of the curve.
