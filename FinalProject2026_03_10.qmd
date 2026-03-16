@@ -1191,18 +1191,18 @@ colnames(aggy)[4]<-'blank.rate' # rename the blank rate
 Photo.R<-left_join(Photo.R, photo.blnk)
 
 #minus the blanks 
-blank1_rate <- aggregate %>%
+blank1_rate <- aggy %>%
   slice(-148) %>%
   filter(chamber == 4) %>%
   pull(umol.sec)
   
 
-blank2_rate <- aggregate %>%
+blank2_rate <- aggy %>%
   filter(chamber == 8) %>%
   pull(umol.sec)
 
 #Create the blank_rate column 
-aggregate_adj <- aggregate %>%
+aggy_adj <- aggy %>%
   mutate(
     blank_rate = case_when(
       chamber %in% 1:3 ~ first(blank1_rate),
@@ -1213,12 +1213,11 @@ aggregate_adj <- aggregate %>%
   #filter(!chamber == "4" | !chamber == "8") 
 
 #Minus the blank rate and the umoll to get the adjusted value
-aggregate_corr <- aggregate_adj %>% 
+aggy_corr <- aggy_adj %>% 
   mutate(O2.sec.corr = umol.sec - blank_rate) 
 
 #Correct for the hour, but we need the mass
-
-aggregate_hr <- aggregate_corr %>% 
+aggy_hh <- aggy_corr %>% 
   mutate( 
     masskg = case_when(
       chamber == 1 ~ 20.58/1000,
@@ -1229,6 +1228,30 @@ aggregate_hr <- aggregate_corr %>%
       chamber == 6 ~ 18.60/1000, 
       chamber == 7 ~ 17.07/1000, 
       chamber == 8 ~ 1/1000
-    ) #%>% 
-#mutate(umol.cm2.hr = (O2.sec.corr*3600)/masskg
+    )
+  ) %>% 
+  mutate(umol_cm2_hr = (O2.sec.corr * 3600) / masskg)
+
+#remove NAs
+aggy_na <- aggy_hh %>% 
+    filter(!is.na(umol_cm2_hr))
+#make it positive
+  aggy_pos <- aggy_na %>% 
+    mutate(umol_cm2_hr = -(umol_cm2_hr)) %>% 
+    filter(umol_cm2_hr > 0)
+  
+#log it for get the rate
+   aggy_log <- aggy_pos %>% 
+    mutate(rate = log(umol_cm2_hr + 0.01))
+```
+
+### Lets check the visuals
+
+```{r}
+plot(aggy_log $temp_bin,
+     aggy_log $rate,
+     pch = 16,
+     xlab = "Temperature (°C)",
+     ylab = "Metabolic Rate",
+     main = "TPC diagnostic plot")
 ```
