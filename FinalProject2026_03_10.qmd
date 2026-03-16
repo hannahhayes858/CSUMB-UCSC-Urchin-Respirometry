@@ -267,7 +267,7 @@ Chamber1 <- FR_2 %>% #we need to get rid of salinity -> TempComp
   filter(chamber == 1) %>% 
   select(-(Salinity:TempComp)) %>% 
   filter(Intermittent_mode == "RITM") %>% 
-  select(Intermittent_phase, O_perecent_airsat:Temperature_compensation_C, chamber:seconds)
+  select(Time, Intermittent_phase, O_perecent_airsat:Temperature_compensation_C, chamber:seconds)
 
 
 Chamber2_8 <- FR_2 %>% 
@@ -275,7 +275,7 @@ Chamber2_8 <- FR_2 %>%
   select(-(Salinity_N:Temperature_compensation_C)) %>% 
   relocate(Salinity:TempComp, .before = PowerX4_EAC7_voltage_V_flush) %>% 
   filter(Intermittent_mode == "RITM") %>% 
-  select(Intermittent_phase, Oairsat:TempComp, chamber:seconds)
+  select(Time, Intermittent_phase, Oairsat:TempComp, chamber:seconds)
 
 colnames(Chamber1) <- colnames(Chamber2_8) #renaming all of the columns in the Chamber1 dataframe with the columns names from Chamber2_8
 FieldResp <- rbind(Chamber1, Chamber2_8) #Combining the two dataframes as FieldResp
@@ -291,7 +291,7 @@ FieldResp %>%
 
 Field_Resp_select <- FieldResp %>% 
   mutate(Tub = ifelse(chamber <= 4, "A", "B")) %>% 
-  select(Intermittent_phase, Oairsat,Temp, chamber, Date, seconds, Tub) 
+  select(Time, Intermittent_phase, Oairsat,Temp, chamber, Date, seconds, Tub) 
 
 
 
@@ -1007,5 +1007,160 @@ summary(mod)
 ### I had a dream, lets calculate oxygen consumed for every
 
 ```{r}
+#we're working with the field resp select data frame because I need the loop column 
+Field_Resp_select
 
+#we need a mass and chamber volume column 
+#We must take into consideration the mass of each urchin. so first we'll make a vector of the individual masses
+mass_vec <- c(
+  0.02058,  # urchin 1
+  0.01308,  # urchin 2
+  0.02054,  # urchin 3
+  0.001,         # blank chamber 4
+  0.01334,  # urchin 5
+  0.0186,  # urchin 6
+  0.01707,  # urchin 7
+  0.001        # blank chamber 8
+)
+
+#do the same for volume
+ volume <- c(
+      743.92, #Ch 1
+      751.42, #Ch 2
+      743.96, # Ch 3
+      763.50, # ch4
+      751.16, # Ch 5
+      745.90, # Ch 6
+      747.43, #Ch 7
+      763.50 #Ch 8 
+ )
+ 
+ # we need these columns timepassed = 1, Oairsar2, tempK, metabolic rate, blank rate, o2seccorrected, o2 mg hour
+ 
+ 
+Field_Reskp_grouped <- Field_Resp_select %>%
+  arrange(Tub, chamber, Time) %>%   # sort first by blank,chamber, then time
+  group_by(Tub, chamber) %>%        # calculate rates within each replicate
+  mutate(umol.sec = c(NA, diff(Oairsat) / diff(seconds))) #%>% 
+ # ungroup() %>%
+ # mutate(blank.rate = ifelse(chamber == 4, umol.sec, NA)) 
+
+#Now we need the blank rate to minus 
+#Get the blank rates 
+blank1_rate <- Field_Reskp_grouped %>%
+  filter(chamber == 4) %>%
+  pull(umol.sec)
+  
+
+blank2_rate <- Field_Reskp_grouped %>%
+  filter(chamber == 8) %>%
+  pull(umol.sec)
+
+#Create the blank_rate column 
+Field_Reskp_adj <- Field_Reskp_grouped %>%
+  mutate(
+    blank_rate = case_when(
+      chamber %in% 1:3 ~ blank1_rate,
+      chamber %in% 5:7 ~ blank2_rate,
+      TRUE ~ NA_real_
+    )
+  )
+
+#Minus the MR of the background get the corrected column
+Field_Reskp_adj <- Field_Reskp_adj %>% 
+  mutate(O2.sec.corr = umol.sec - blank_rate) %>% 
+  filter(!chamber == "4" | !chamber == "8") 
+
+#seperate m from numbers in the intermittent phase column
+Field_Reskp_adj <- Field_Reskp_adj %>%
+  mutate(Intermittent_phase = as.numeric(gsub("M", "", Intermittent_phase)))
+
+#lets group it by measuremnet phase and take the average of that 
+Field_Resp_loop <- Field_Reskp_adj %>%
+  group_by(Intermittent_phase) %>% # calculate rates within each replicate
+  summarise(mean_rate = mean(O2.sec.corr, na.rm = TRUE))
+
+#Let's plot to see what it looks like   
+  plot(Field_Resp_loop$Intermittent_phase,
+     Field_Resp_loop$mean_rate,
+     pch = 16,
+     xlab = "Loop #",
+     ylab = "Average O2 Consumption",
+     main = "TPC diagnostic plot")
+  
+```
+
+### So far so good! Now let's make an O2 column and it's the Starting O2
+
+```{r}
+
+```
+
+### Lets try the same grouping, but by temperature instead of phase
+
+```{r}
+#Lets make a column that rounds the temp up or down
+
+#lets group it by measuremnet phase and take the average of that 
+Field_Reskp_tempavg <- Field_Reskp_adj %>%
+  mutate(temp_bin = round(Temp)) %>% 
+  group_by(temp_bin) %>% # calculate rates within each replicate
+  summarise(mean_rate = mean(O2.sec.corr, na.rm = TRUE))
+
+ #Let's plot to see what it looks like   
+  plot(Field_Reskp_tempavg$temp_bin,
+     Field_Reskp_tempavg$mean_rate,
+     pch = 16,
+     xlab = "Temp",
+     ylab = "Average O2 Consumption",
+     main = "TPC diagnostic plot")
+  
+#looks nice! Let's make a datafram with everything including temp_bin
+Field_Reskp_temp <- Field_Reskp_adj %>%
+  mutate(temp_bin = round(Temp))
+```
+
+### Now that the data looks nice let's factor in mass
+
+```{r}
+#Add a mass column and chamber volume
+Field_Reskp_mass_chV <- Field_Reskp_temp %>% 
+  mutate( 
+    masskg = case_when(
+      chamber == 1 ~ 20.58/1000,
+      chamber == 2 ~ 13.08/1000,
+      chamber == 3 ~ 20.54/1000,
+      chamber == 4 ~ 1/1000,
+      chamber == 5 ~ 13.34/1000, 
+      chamber == 6 ~ 18.60/1000, 
+      chamber == 7 ~ 17.07/1000, 
+      chamber == 8 ~ 1/1000
+    )
+  ) %>% #Then we need to add in chamber volume 
+   mutate( 
+    ChV_L = case_when(
+      chamber == 1 ~ 743.92/1000,
+      chamber == 2 ~ 751.42/1000,
+      chamber == 3 ~ 743.96/1000,
+      chamber == 4 ~ 763.50/1000,
+      chamber == 5 ~ 751.16/1000, 
+      chamber == 6 ~ 745.90/1000, 
+      chamber == 7 ~ 747.43/1000, 
+      chamber == 8 ~ 763.50/1000
+    )) %>% #filter out NAs
+    filter(!is.na(O2.sec.corr))  
+
+arrange()
+
+#I think I need to adjust for volume 
+#Field_Reskp_mass_vol <- Field_Reskp_mass_chV %>% 
+ # mutate(umol.sec = umol.sec*ChV_L)
+
+#find the mml cm2 hr
+
+
+Field_Reskp_mmlcm2hr <- Field_Reskp_mass_chV %>% 
+  mutate(umol.cm2.hr = (O2.sec.corr)/masskg
+  ) %>% 
+  filter(umol.cm2.hr > 0)
 ```
