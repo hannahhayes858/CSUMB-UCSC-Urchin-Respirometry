@@ -737,31 +737,7 @@ summary(mod)
 #we're working with the field resp select data frame because I need the loop column 
 Field_Resp_select
 
-#we need a mass and chamber volume column 
-#We must take into consideration the mass of each urchin. so first we'll make a vector of the individual masses
-mass_vec <- c(
-  0.02058,  # urchin 1
-  0.01308,  # urchin 2
-  0.02054,  # urchin 3
-  0.001,         # blank chamber 4
-  0.01334,  # urchin 5
-  0.0186,  # urchin 6
-  0.01707,  # urchin 7
-  0.001        # blank chamber 8
-)
 
-#do the same for volume
- volume <- c(
-      743.92, #Ch 1
-      751.42, #Ch 2
-      743.96, # Ch 3
-      763.50, # ch4
-      751.16, # Ch 5
-      745.90, # Ch 6
-      747.43, #Ch 7
-      763.50 #Ch 8 
- )
- 
  # we need these columns timepassed = 1, Oairsar2, tempK, metabolic rate, blank rate, o2seccorrected, o2 mg hour
  
  
