@@ -5,6 +5,8 @@ format: html
 editor: visual
 ---
 
+## Data Wrangling
+
 ### Libraries & Packages
 
 ```{r}
@@ -24,20 +26,25 @@ library(lubridate) #To turn time HH:MM:SS AM/PM into seconds passed
 library(rTPC)
 library(dplyr)
 library(ggplot2)
+library(brms)
 ```
 
 ### Working Directory
 
 ```{r}
-#file.choose()
+#set the working directory
 setwd("/Users/hannahhayes858/Desktop/JJG x HH Collab/Rcode/CSUMB-UCSC-Urchin-Respirometry") 
 ```
 
 ### Read in the Data
 
-The way that LoLigo has give us the data is a separate CSV for each chamber, and they don't have a column for which chamber it is. So I'm going to read in all the data and add a column for the chamber number.
+I am having a lot of trouble reading the data back in. When I was working through the data wrangling I was periodically saving the new CSVs. Chunks 3 through 8 will not run. The CSVs from the UTF folder are no longer acceptable csv format. I'm not sure why. The files need to be converted back un UTF-8 files. I tried to do the read.csv(..., UTF file...). It did not work.
 
 ```{r}
+#| eval: false
+#| include: false
+
+
 #Field Resp Chamber 1 
 file.choose()
 FRCh1 <- read.csv("/Users/hannahhayes858/Desktop/JJG x HH Collab/Rcode/CSUMB-UCSC-Urchin-Respirometry/Data/FieldRep_021826-2/UTF/FieldRep_021826_Restingchamber1_218202610216_UTF.csv")
@@ -110,7 +117,11 @@ FRCh8 <- FRCh8 %>%
 
 ### Combine all of the CSVs
 
+Must combine all of the CSVs into one
+
 ```{r}
+#| eval: false
+#| include: false
 FR <- bind_rows(FRCh1, FRCh2, FRCh3, FRCh4, FRCh5, FRCh6, FRCh7, FRCh8) #Combine all of the data to one CSV
 FR #Check that it worked
 
@@ -119,7 +130,11 @@ unique(FR$chamber) #Check that all the chambers made it into the same CSV
 
 ### Convert AM/PM into 24hr
 
+The time is the format of HH:MM:SS AM/PM format and needs to converted into HH:MM:SS
+
 ```{r}
+#| eval: false
+#| include: false
 # Call upon Time column 
 FR$Time
 
@@ -136,7 +151,11 @@ FR$Time
 
 ### Convert Time into Seconds
 
+Then time needs to be broken down in to seconds passed. Which from each time step should be one second.
+
 ```{r}
+#| eval: false
+#| include: false
 FR_sec <- FR %>%
   mutate(
     time_parsed = hms(Time),
@@ -144,9 +163,11 @@ FR_sec <- FR %>%
   )
 ```
 
-### Select for variables
+### Select for columns
 
 ```{r}
+#| eval: false
+#| include: false
 #O2%, Chamber, Date, seconds, temperature
 # Select specific columns
 FR_resp <- select(FR_sec, chamber, Date, )
@@ -156,7 +177,7 @@ FR_resp <- FR_sec %>%
 FR_resp$colname
 ```
 
-#### Change Time into seconds
+### Change Time into seconds
 
 ```{r}
 #| eval: false
@@ -188,18 +209,19 @@ FR_sec <- FR_Time %>%
   )
 ```
 
-### Duplicate NA Columns
+### Duplicate NA Columns.
+
+The column names were not exactly the same so it duplicated the columns and had a bunch of NAs.
 
 ```{r}
-FR_sec
-write.csv(FR_sec, "FR_sec.csv")
-file.choose()
-library(readr)
+#FR_sec
+#write.csv(FR_sec, "FR_sec.csv")
+#file.choose()
 FR_2 <- read_csv("Data/FieldRep_021826-2/UTF/FR.csv")
 #FR_2 <- read.csv("/Users/hannahhayes858/Desktop/JJG x HH Collab/Data/FieldRep_021826-2/UTF/FR.csv")
 
 Chamber1 <- FR_2 %>% #we need to get rid of salinity -> TempComp
-  filter(chamber == 1) %>% 
+  filter(chamber == 1) %>% # we only want chamber 1 rows
   select(-(Salinity:TempComp)) %>% 
   filter(Intermittent_mode == "RITM") %>% 
   select(Time, Intermittent_phase, O_perecent_airsat:Temperature_compensation_C, chamber:seconds)
@@ -216,7 +238,7 @@ colnames(Chamber1) <- colnames(Chamber2_8) #renaming all of the columns in the C
 FieldResp <- rbind(Chamber1, Chamber2_8) #Combining the two dataframes as FieldResp
 write.csv(FieldResp, "FieldResp_2026-02-18.csv")
 
-FieldResp <- read.csv("FieldResp_2026-02-18.csv")
+FieldResp <- read.csv("FieldResp_2026-02-18.csv") #save into a new csv
 
 FieldResp %>% 
   ggplot(aes(x = seconds, y = Oairsat, color = chamber)) +
@@ -227,387 +249,13 @@ Field_Resp_select <- FieldResp %>%
   mutate(Tub = ifelse(chamber <= 4, "A", "B")) %>% 
   select(Time, Intermittent_phase, Oairsat,Temp, chamber, Date, seconds, Tub) 
 
-
-
-#Group chamber 1-3 & 5-7 separately 
-
-
 ```
 
-# STARTING OVER
-
-### Data Wrangling
-
-```{r}
-FR1_8 <- read.csv("FieldResp_2026-02-18.csv") #Read in the data
-#lets get all the column names 
-colnames(FR1_8)
-
-FR1_8 <- FR1_8 %>% #select for O ar saturation, chamber, temperautre, seconds
-  select(Oairsat, Temp,chamber, seconds) %>% 
-  #add in mass for each urchin
-  mutate( 
-    masskg = case_when(
-      chamber == 1 ~ 20.58/1000,
-      chamber == 2 ~ 13.08/1000,
-      chamber == 3 ~ 20.54/1000,
-      chamber == 4 ~ 1/1000,
-      chamber == 5 ~ 13.34/1000, 
-      chamber == 6 ~ 18.60/1000, 
-      chamber == 7 ~ 17.07/1000, 
-      chamber == 8 ~ 1/1000
-    )
-  ) %>% #Then we need to add in chamber volume 
-   mutate( 
-    ChV_ml = case_when(
-      chamber == 1 ~ 743.92,
-      chamber == 2 ~ 751.42,
-      chamber == 3 ~ 743.96,
-      chamber == 4 ~ 763.50,
-      chamber == 5 ~ 751.16, 
-      chamber == 6 ~ 745.90, 
-      chamber == 7 ~ 747.43, 
-      chamber == 8 ~ 763.50
-    )
-  ) %>% #add in a blank 1 & blank 2 column 
-  mutate(
-    blank = case_when(
-      chamber <= 4 ~ 1,
-      chamber >= 5 ~ 2
-    )
-  )
-      
-head(FR1_8) #check out the data to see if selected correctly 
-tibble(FR1_8)
-```
-
-### 3. Background Noise
-
-When doing respirometry, you typically run a blank chamber that does not have an organism in it to account for any background noise (respiration, photosynthesis) that may be affecting the O2 measurements that cannot be attributed to your study organism. We must calculate the oxygen consumption rates of the blanks and minus them from the actual rates from the other chambers.
-
-### Oxygen Consumption
-
-```{r}
-FRplot <- FRresp %>% 
-  ggplot(aes(
-    x= Temp, y = oxygen
-  )) +
-  geom_point() 
-FRplot
-
-FRplot2 <- FRresp_grouped %>% 
-  ggplot(aes(
-    x= Temp, y = oxygen_rate
-  )) +
-  geom_point() 
-FRplot2
-```
-
-### Let's add the calculations and adjustments to the FRresp
-
-```{r}
-#we need to add a temperature bin to the data fram 
-FRresp <- FRresp %>% 
-  mutate(
-    temp_bin = round(Temp)
-  )
-  
-
-#the we need to group everything into temo_bin and avergae it for each temperature step
-
-#going to group by blank > chamber > time 
-
-FRresp_grouped <- FRresp %>%
-  arrange(blank, chamber, time) %>%   # sort first by blank,chamber, then time
-  group_by(blank, chamber) %>%        # calculate rates within each replicate
-  mutate(umol.sec = c(NA, diff(oxygen) / diff(time))) #%>% 
- # ungroup() %>%
- # mutate(blank.rate = ifelse(chamber == 4, umol.sec, NA))
-```
-
-### Starting Over Again
-
-```{r}
-
-# change in oxygen
-delta_O2 <- O2_start - O2_end
-
-# metabolic rate
-MR <- (Oairsat2 / timepassed) * ChV_ml
-
-freaky <- FR1_8 %>% #select for O ar saturation, chamber, temperautre, seconds
-  select(Oairsat, Temp,chamber, time_parsed, seconds) %>% 
-  #add in mass for each urchin
-  mutate( 
-    masskg = case_when(
-      chamber == 1 ~ 20.58/1000,
-      chamber == 2 ~ 13.08/1000,
-      chamber == 3 ~ 20.54/1000,
-      chamber == 4 ~ 1/10000,
-      chamber == 5 ~ 13.34/1000, 
-      chamber == 6 ~ 18.60/1000, 
-      chamber == 7 ~ 17.07/1000, 
-      chamber == 8 ~ 1/10000
-    )
-  ) %>% #Then we need to add in chamber volume 
-   mutate( 
-    ChV_ml = case_when(
-      chamber == 1 ~ 743.92,
-      chamber == 2 ~ 751.42,
-      chamber == 3 ~ 743.96,
-      chamber == 4 ~ 763.50,
-      chamber == 5 ~ 751.16, 
-      chamber == 6 ~ 745.90, 
-      chamber == 7 ~ 747.43, 
-      chamber == 8 ~ 763.50
-    )
-  ) %>% #add in a blank 1 & blank 2 column 
-  mutate(
-    blank = case_when(
-      chamber <= 4 ~ 1,
-      chamber >= 5 ~ 2
-    )
-  ) %>% 
-  mutate(timepassed = 1) %>% 
-  #need to add a column for change in oxygen o2 end 
-  mutate(Oairsat2 = c(NA, diff(Oairsat) / diff(seconds))) 
-   
-      
-head(freaky) #check out the data to see if selected correctly 
-tibble(freaky)
-
-# change in oxygen
-FKEY_oxy_chg  <- freaky %>%
-  mutate(
-    delta_O2 = Oairsat2,
-    metabolic_rate = ((delta_O2 / masskg * timepassed) 
-  )
-
-```
-
-### calculate background rate
-
-```{r}
-#this is where we need to adjust for the rate 
-#the we need to group everything into temo_bin and avergae it for each temperature step
-#going to group by blank > chamber > time 
-
-#Get the blank rates 
-blank1_rate <- FKEY_oxy_chg %>%
-  filter(chamber == 4) %>%
-  pull(Oairsat2) %>%
-  first()
-
-blank2_rate <- FKEY_oxy_chg %>%
-  filter(chamber == 8) %>%
-  pull(Oairsat2) %>%
-  first()
-
-#Create the blank_rate column 
-FKEY_adj <- FKEY_oxy_chg %>%
-  mutate(
-    blank_rate = case_when(
-      chamber %in% 1:3 ~ blank1_rate,
-      chamber %in% 5:7 ~ blank2_rate,
-      TRUE ~ NA_real_
-    )
-  )
-
-#Minus the MR of the background 
-FKEY_adj <- FKEY_adj %>% 
-  mutate(O2.sec.corr = Oairsat2 - blank_rate) %>% 
-  filter(!chamber == "4" | !chamber == "8") 
-################################################################################
-#lets try grouping it here 
-FKEY_adj_group <- FKEY_adj %>% 
-   filter(is.finite(O2.sec.corr)) %>% 
-  mutate(Temp = round(Temp, 1)) %>%
-  group_by(Temp, chamber, masskg) %>%
-  summarise(O2.sec.corr.mean = mean(O2.sec.corr)) 
-
-#find the mml cm2 hr
-FKEY_adj_group_hr <- FKEY_adj_group %>% 
-  mutate(umol.cm2.hr = (O2.sec.corr.mean*3600)/masskg
-  ) %>% 
-  filter(umol.cm2.hr > 0)
-
-#log the rates
-FKEY_adj_group_log <- FKEY_adj_group_hr %>% 
-mutate(rate.in = log(umol.cm2.hr+0.1))
-
-FKEY_adj_group_clean <- FKEY_adj_group_log %>% 
-  filter(is.finite(rate.in))
-#########################################################################################
-
-#find the mml cm2 hr
-FKEY_adj_hr <- FKEY_adj %>% 
-  mutate(umol.cm2.hr = (O2.sec.corr*3600)/masskg
-  )
-
-#remove all na rows
-FKEY_hr_na<- FKEY_adj_hr %>% 
-  filter(is.finite(blank_rate))
-
-#group it by temp 
-FKEY_grouped <- FKEY_hr_na %>%
-  group_by(Temp) %>%
-  summarise(metabolic_rate = mean(umol.cm2.hr), .groups = "drop") %>% 
-  filter(is.finite(metabolic_rate))
-
-#log the rates
-FKEY_log <- FKEY_hr_na %>% 
-mutate(rate.in = log(umol.cm2.hr+0.1))
-#filter out NAs
-FKEY_log_clean <- FKEY_log %>% 
-  filter(is.finite(rate.in))
-```
-
-### Now we can calculate MR
-
-```{r}
-#recalculate MR
-FKEY_MR  <- FKEY_adj %>%
-  mutate(
-    delta_O2 = Oairsat2,
-    metabolic_rate = (O2.sec.corr / masskg * timepassed) 
-  )
-
-#now lets group it by temperature 
-FKEY_avg <- FKEY_MR %>%
-  group_by(Temp) %>%
-  summarise(metabolic_rate = mean(metabolic_rate), .groups = "drop")
-
-
-#account for mass
-#FKEY_mass <- FKEY_oxy_chg %>%
- # mutate(
-  #  mass_specific_MR = metabolic_rate / masskg
-  #)
-
-#need the slope of oxygen decline 
-#model <- lm(Oairsat ~ seconds, data = FKEY_mass)
-
-#slope <- coef(model)[2]
-
-#add MR as a column
-#FKEY_MR <- FKEY_mass %>% 
- # mutate(metabolic_rate = slope * ChV_ml
- # )
-#head(FKEY_MR)
-```
-
-#### Quick Visualizations
-
-```{r}
-MRplot <- FKEY_grouped %>% 
-  ggplot(aes(x= Temp, y = metabolic_rate)) +
-  geom_point()
-MRplot
-
-plot(FKEY_adj_group_log $Temp,
-     FKEY_adj_group_log $rate.in,
-     pch = 16,
-     xlab = "Temperature (°C)",
-     ylab = "Metabolic Rate",
-     main = "TPC diagnostic plot")
-
-plot(FKEY_adj_group_hr$Temp,
-     log(FKEY_adj_group_hr$umol.cm2.hr),
-     pch = 16,
-     xlab = "Temperature",
-     ylab = "log(Metabolic Rate)")
-```
-
-### 
-
-### Blanks Data
-
-```{r eva; = FALSE}
-#make a new data frame with only the blanks chamber
-blank_data <- FKEY_MR %>%
-  filter(chamber == 4 | chamber == 8)
-
-#adjust for background rate 
-blank_model <- lm(Oairsat ~ seconds, data = blank_data)
-blank_slope <- coef(blank_model)[2]
-
-
-
-```
-
-### Model
-
-```{r}
-#remove Nas
-FKEY_MR <- FKEY_MR %>%
-  filter(is.finite(metabolic_rate), is.finite(Temp))
-
-#fill in missing values
-start_vals["el"] <- 1
-#start_vals["eh"] <- 1
-
-#recalculate starting values
-start_vals <- get_start_vals(
-  FKEY_MR$Temp,
-  FKEY_MR$metabolic_rate,
-  model_name = "sharpeschoolfull_1981"
-)
-
-#check vals
-start_vals
-is.finite(start_vals)
-
-#check for negative or zero rates
-summary(FKEY_MR$metabolic_rate)
-
-#fit the model 
-mod <- nls_multstart(
-  metabolic_rate ~ sharpeschoolfull_1981(
-    temp = Temp,
-    r_tref,
-    e,
-    el,
-    tl,
-    eh,
-    th,
-    tref = 20
-  ),
-  data = FKEY_MR,
-  iter = c(3,3,3,3,3,3),
-  start_lower = start_vals - 10,
-  start_upper = start_vals + 10,
-  lower = get_lower_lims(FKEY_MR$Temp, FKEY_MR$metabolic_rate,
-                         model_name = "sharpeschoolfull_1981"),
-  upper = get_upper_lims(FKEY_MR$Temp, FKEY_MR$metabolic_rate,
-                         model_name = "sharpeschoolfull_1981"),
-  supp_errors = "Y"
-)
-
-#Check the fit 
-summary(mod)
-#generate predictions for plotting 
-preds <- data.frame(
-  Temp = seq(min(tpc_data$Temp), max(tpc_data$Temp), length.out = 100)
-)
-preds <- broom::augment(mod, newdata = preds)
-
-#plot TPC 
-ggplot() +
-  geom_point(data = tpc_data, aes(Temp, rate_mass)) +
-  geom_line(data = preds, aes(Temp, .fitted), color = "blue") +
-  theme_bw()
-
-summary(tpc_data$rate_mass)
-
-summary(tpc_data)
-summary(mod)
-```
-
-### I had a dream, lets calculate oxygen consumed for every
+### Calculate oxygen consumed for every time step
 
 ```{r}
 #we're working with the field resp select data frame because I need the loop column 
-Field_Resp_select
+head(Field_Resp_select)
 
  # we need these columns timepassed = 1, Oairsar2, tempK, metabolic rate, blank rate, o2seccorrected, o2 mg hour
 Field_Reskp_grouped <- Field_Resp_select %>%
@@ -616,7 +264,13 @@ Field_Reskp_grouped <- Field_Resp_select %>%
   mutate(umol.sec = c(NA, diff(Oairsat) / diff(seconds))) #%>% 
  # ungroup() %>%
  # mutate(blank.rate = ifelse(chamber == 4, umol.sec, NA)) 
+```
 
+### Blanks
+
+When doing respirometry, you typically run a blank chamber that does not have an organism in it to account for any background noise (respiration, photosynthesis) that may be affecting the O2 measurements that cannot be attributed to your study organism. We must calculate the oxygen consumption rates of the blanks and minus them from the actual rates from the other chambers.
+
+```{r}
 #Now we need the blank rate to minus 
 #Get the blank rates 
 blank1_rate <- Field_Reskp_grouped %>%
@@ -639,6 +293,11 @@ Field_Reskp_adj <- Field_Reskp_grouped %>%
   )%>% 
   filter(!chamber == "4" | !chamber == "8") 
 
+```
+
+### Group by temperature bin
+
+```{r}
 #seperate m from numbers in the intermittent phase column
 Field_Reskp_adj <- Field_Reskp_adj %>%
   mutate(Intermittent_phase = as.numeric(gsub("M", "", Intermittent_phase)))
@@ -646,108 +305,16 @@ Field_Reskp_adj <- Field_Reskp_adj %>%
 #Lets add in a temp bin
 Field_Reskp_tbin <- Field_Reskp_adj %>% 
 mutate(temp_bin = round(Temp))
-
-###########################################################################
-#playing to see if it's better to group things by the loop #
-###########################################################################
-
-#lets group it by measuremnet phase and take the average of that 
-Field_Resp_loop <- Field_Reskp_adj %>%
-  group_by(Intermittent_phase) %>% # calculate rates within each replicate
-  summarise(mean_rate = mean(O2.sec.corr, na.rm = TRUE))
-
-#Let's plot to see what it looks like   
-  plot(Field_Resp_loop$Intermittent_phase,
-     Field_Resp_loop$mean_rate,
-     pch = 16,
-     xlab = "Loop #",
-     ylab = "Average O2 Consumption",
-     main = "TPC diagnostic plot")
-#it appears loop# is not the right way to group it. Makes our sample size too small
 ```
 
-### Lets try the same grouping, but by temperature instead of phase
+### Aggregate Function
 
-```{r}
-#Lets make a column that rounds the temp up or down
-
-#lets group it by measuremnet phase and take the average of that 
-Field_Reskp_tempavg <- Field_Reskp_adj %>%
-  mutate(temp_bin = round(Temp)) %>% 
-  group_by(temp_bin) %>% # calculate rates within each replicate
-  summarise(mean_rate = mean(O2.sec.corr, na.rm = TRUE))
-
- #Let's plot to see what it looks like   
-  plot(Field_Reskp_tempavg$temp_bin,
-     Field_Reskp_tempavg$mean_rate,
-     pch = 16,
-     xlab = "Temp",
-     ylab = "Average O2 Consumption",
-     main = "TPC diagnostic plot")
-  
-#looks nice! Let's make a datafram with everything including temp_bin
-Field_Reskp_temp <- Field_Reskp_adj %>%
-  mutate(temp_bin = round(Temp))
-```
-
-### Now that the data looks nice let's factor in mass
-
-```{r}
-#Add a mass column and chamber volume
-Field_Reskp_mass_chV <- Field_Reskp_temp %>% 
-  mutate( 
-    masskg = case_when(
-      chamber == 1 ~ 20.58/1000,
-      chamber == 2 ~ 13.08/1000,
-      chamber == 3 ~ 20.54/1000,
-      chamber == 4 ~ 1/1000,
-      chamber == 5 ~ 13.34/1000, 
-      chamber == 6 ~ 18.60/1000, 
-      chamber == 7 ~ 17.07/1000, 
-      chamber == 8 ~ 1/1000
-    )
-  ) %>% #Then we need to add in chamber volume 
-   mutate( 
-    ChV_L = case_when(
-      chamber == 1 ~ 743.92/1000,
-      chamber == 2 ~ 751.42/1000,
-      chamber == 3 ~ 743.96/1000,
-      chamber == 4 ~ 763.50/1000,
-      chamber == 5 ~ 751.16/1000, 
-      chamber == 6 ~ 745.90/1000, 
-      chamber == 7 ~ 747.43/1000, 
-      chamber == 8 ~ 763.50/1000
-    )) %>% #filter out NAs
-    filter(!is.na(O2.sec.corr))  
-
-arrange()
-
-#I think I need to adjust for volume 
-#Field_Reskp_mass_vol <- Field_Reskp_mass_chV %>% 
- # mutate(umol.sec = umol.sec*ChV_L)
-
-#find the mml cm2 hr
-
-
-Field_Reskp_mmlcm2hr <- Field_Reskp_mass_chV %>% 
-  mutate(umol.cm2.hr = (O2.sec.corr)/masskg
-  ) %>% 
-  filter(umol.cm2.hr > 0)
-```
-
-### aggregate function
+Grouping are not giving us a mean with in the correct order. Let's try it using the aggregate function!
 
 ```{r}
 #We're going to group it differently this time
 aggy <- aggregate(umol.sec ~ Tub*temp_bin*chamber, data=Field_Reskp_tbin, mean)
-# pull out only the blanks
-#photo.blnk<-photo.blnk[photo.blnk$Species=='BK',]
-aggy <-aggy[aggy$Tub==4,]
-#joinit back to the tbin data frame
-aggy$Tub<-NULL
-colnames(aggy)[4]<-'blank.rate' # rename the blank rate 
-# join the blank data with the rest of the data
-Photo.R<-left_join(Photo.R, photo.blnk)
+
 
 #minus the blanks 
 blank1_rate <- aggy %>%
@@ -811,22 +378,24 @@ write.csv(aggy_log, "TPCdata.csv")
 
 ```{r}
 #logged Rate vs temp bin 
-plot(aggy_log $temp_bin,
-     aggy_log $rate,
+plot(aggy_log$temp_bin,
+     aggy_log$rate,
      pch = 16,
      xlab = "Temperature (°C)",
      ylab = "Metabolic Rate",
      main = "TPC diagnostic plot")
 
-plot(aggy_log $temp_bin,
-     aggy_log $umol_cm2_hr,
+plot(aggy_log$temp_bin,
+     aggy_log$umol_cm2_hr,
      pch = 16,
      xlab = "Temperature (°C)",
      ylab = "Metabolic Rate",
      main = "TPC diagnostic plot")
 ```
 
-## Models
+Really cool! So It's giving us a general TPC, but there is a decent amount of noise and not a clear drop off. I believe we need to ramp the urchins up to a higher temperature to get the end of the TPC.
+
+## Analysis
 
 ### Read in the data
 
@@ -835,30 +404,47 @@ plot(aggy_log $temp_bin,
 TPCdata <- read.csv("TPCdata.csv")
 ```
 
+### Let's visualize the data
+
+```{r}
+
+model <- TPCdata %>% 
+  ggplot(aes(x = temp_bin, y = rate)) +
+  geom_point() 
+model
+```
+
+### Is it normal data?
+
+```{r}
+hist <- TPCdata %>% 
+  ggplot(aes(x = rate)) +
+  geom_histogram()
+hist
+
+hist2 <- TPCdata %>% 
+  ggplot(aes(x = umol_cm2_hr)) +
+  geom_histogram()
+hist2
+```
+
 ### BRMS
 
 ```{r}
 fit_simple <- 
   brm(data = TPCdata, # Give the model the data
-      # Choose a gaussian (normal) distribution
+      # gaussian (normal) distribution
       family = gaussian,
-      # Specify the model here. 
       rate ~ 1 + temp_bin,
-      # Here's where you specify parameters for executing the Markov chains
-      # We're using similar to the defaults, except we set cores to 4 so the analysis runs faster than the default of 1
       iter = 2000, warmup = 1000, chains = 4, cores = 4,
-      # Setting the "seed" determines which random numbers will get sampled.
-      # In this case, it makes the randomness of the Markov chain runs reproducible 
-      # (so that both of us get the exact same results when running the model)
       seed = 4,
-      # Save the fitted model object as output - helpful for reloading in the output later
       file = "output/fit_simple")
 
 summary(fit_simple)
 plot(fit_simple)
 ```
 
-### I noticed in the histogram the data looks a bit skewed so I would like ot try using a gamma family instead of a Guassain
+### I noticed in the histogram the data looks a bit skewed so I would like to try using a gamma family instead of a Guassain
 
 ```{r}
 fit_gamma <- 
@@ -879,26 +465,4 @@ fit_gamma <-
 
 summary(fit_gamma)
 plot(fit_gamma)
-```
-
-### Let's visualize the data
-
-```{r}
-model <- TPCdata %>% 
-  ggplot(aes(x = temp_bin, y = rate)) +
-  geom_point() 
-```
-
-### Is it normal data? 
-
-```{r}
-hist <- TPCdata %>% 
-  ggplot(aes(x = rate)) +
-  geom_histogram()
-hist
-
-hist2 <- TPCdata %>% 
-  ggplot(aes(x = umol_cm2_hr)) +
-  geom_histogram()
-hist2
 ```
