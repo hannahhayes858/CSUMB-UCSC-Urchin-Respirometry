@@ -26,7 +26,7 @@ library(lubridate) #To turn time HH:MM:SS AM/PM into seconds passed
 
 ```{r}
 #file.choose()
-setwd("/Users/hannahhayes858/Desktop/JJG x HH Collab/Data/FieldRep_021826-2/UTF") 
+setwd("/Users/hannahhayes858/Desktop/JJG x HH Collab/Rcode/CSUMB-UCSC-Urchin-Respirometry") 
 ```
 
 ### Read in the Data
@@ -113,12 +113,6 @@ FR #Check that it worked
 unique(FR$chamber) #Check that all the chambers made it into the same CSV
 ```
 
-### For Loop
-
-```{r}
-
-```
-
 ### Convert AM/PM into 24hr
 
 ```{r}
@@ -156,69 +150,6 @@ FR_resp <- select(FR_sec, chamber, Date, )
 FR_resp <- FR_sec %>% 
   select(column_name_1, column_name_2)
 FR_resp$colname
-```
-
-### Trials
-
-#### Trial #1
-
-okay so we're having way more trouble loading in the data. I think we may have got it now so let's keep going. So through a lot of trial and error and googling and using chatgpt. Turns out the orgiianl file was a UTF 16, but r uses a UTF -8 files. So using TextEdit I was able to change the type of file then i reopened it in ecel and turned it into a CSBV now it works!!!!!!
-
-#### Trial #2
-
-Don't forget to check that everything is there. I didn't notice till after all of these steps that the seconds were missing from the time column so I have to go back and fix all of the csv files again!!!!
-
-```         
-```
-
-### Snips
-
-#### 1st attempt at bindrows
-
-This was to bind all of the CSVs from my local file together, but then I forgot none of them actually have the chamber column
-
-`{r| eval: false} #FR <- list.files(   #path = "/Users/hannahhayes858/Desktop/JJG x HH Collab/CSUMB-UCSC-Urchin-Respirometry/FieldResp_021826/UT8s/TestingforUTF",   #full.names = TRUE #) %>%   # lapply(read_csv) %>%   # bind_rows() #FR #write.csv(FR, "fieldrespch1_8.csv")`
-
-#### Separate Date and Time
-
-\`\`\`{r\| eval: false} #First we need to seperate the date and the time
-
-df_char \<- data.frame( datetime_string = c("2021-05-25 12:34:25", "2019-01-14 04:10:30"))
-
-df_separated \<- FR %\>% \# separate(Datetime, into = c("date", "time"), sep = " ") df_separated \`\`\`
-
-#### Sardine Data Set Example
-
-\`\`\`{r\| eval: false} #\| eval: false #\| include: false \# Example using built-in data 'sardine.rd' data(sardine.rd) \# Inspect the data (time in column 1, oxygen in column 2) sardine_insp \<- inspect(sardine.rd, time = 1, oxygen = 2)
-
-Calculate rate from a specific region (manual)
-
-manual_rate \<- calc_rate(sardine_insp, from = 1000, to = 3000)
-
-Automatically detect the "best-fit" linear rate
-
-auto_rate_obj \<- auto_rate(sardine_insp, method = "linear")
-
-Calculate background rate from background data (example data not shown)
-
-bg_rate \<- calc_rate.bg(background_data)
-
-Adjust the specimen rate
-
-adjusted_rate \<- adjust_rate(auto_rate_obj, by = bg_rate)
-
-Convert to mass-specific units (requires specimen mass and chamber volume)
-
-final_rate \<- convert_rate(adjusted_rate, volume = 1.2, \# volume of respirometer in L mass = 0.5, \# mass of specimen in kg \# input/output units will depend on your data O2.unit = "mg/L", time.unit = "hours", output.unit = "mg/h/kg")
-
-```{r}
-#devtools::install_github("januarharianto/respR")
-
-
-#load the data and combine all csv files
-# Source - https://stackoverflow.com/a/30242859
-# Posted by Maiasaura, modified by community. See post 'Timeline' for change history
-# Retrieved 2026-03-04, License - CC BY-SA 4.0
 ```
 
 #### Change Time into seconds
@@ -300,13 +231,6 @@ Field_Resp_select <- FieldResp %>%
 
 ```
 
-### RespR Package
-
-```{r}
-# Convert your oxygen data to a respR object
-inspect(FieldResp)
-```
-
 ### Calculate the Slope
 
 ```{r}
@@ -328,38 +252,6 @@ Ch1_conv <- convert_rate(Ch1,
                          mass = 0.02058)          # mass of the specimen in kg
 
 summary(Ch1_conv)
-```
-
-### Playing with Urchin Galapagos Data
-
-```{r}
-# define the Sharpe-Schoolfield equation
-schoolfield_high <- function(lnc, E, Eh, Th, temp, Tc) {
-  Tc <- 273.15 + Tc
-  k <- 8.62e-5
-  boltzmann.term <- lnc + log(exp(E/k*(1/Tc - 1/temp))) #units are eV/K, electrovolts/Kelvin
-  inactivation.term <- log(1/(1 + exp(Eh/k*(1/Th - 1/temp))))
-  return(boltzmann.term + inactivation.term)
-}
-# fit over each set of groupings
-
-#droplevels(mydata$Organism.ID)
-
-mydata$Location<-as.character(mydata$Location)
-mydata$Organism.ID<-as.character(mydata$Organism.ID)
-
-fits <- mydata %>%
-  group_by(Organism.ID, Location) %>%
-  nest() %>%
-  mutate(fit = purrr::map(data, ~ nls_multstart(log.rate ~ schoolfield_high(lnc, E, Eh, Th, temp = K, Tc = 26),
-                                                data = .x,
-                                                iter = 1000,
-                                                start_lower = c(lnc = -10, E = 0.1, Eh = 0.2, Th = 285),
-                                                start_upper = c(lnc = 10, E = 2, Eh = 5, Th = 330),
-                                                supp_errors = 'Y',
-                                                na.action = na.omit,
-                                                lower = c(lnc = -10, E = 0, Eh = 0, Th = 0))))
-
 ```
 
 # STARTING OVER
@@ -428,8 +320,6 @@ head(FR1_8) #check out the data to see if selected correctly
 tibble(FR1_8)
 ```
 
-## RespR Package
-
 ### Data Wrangle
 
 ```{r}
@@ -450,115 +340,9 @@ FRwider <- FRresp %>%
   relocate("4", .before = "8")
 ```
 
-### 1. Inspect
-
-```{r}
-#First we must inspect the data for common issues 
-urchin_int <- inspect(FRresp) #this is inspecting the entire data in the long foramt where there are only two columsn for time and oxygen 
-
-#This will inspect the data for each indivudal chamber 
-inspect(FRwider, time = 1, oxygen = 2:9)
-```
-
-### 2. Calc Rate
-
-We then must calcultae the rate at which oxygen is being consumed. The respR package splits replicates up by the rows they are in. So we will use the longer format
-
-```{r}
-#Find from which row to which row is each replicate in
-#using a for loop to keep reiterating the min and max of chamber rows 
-for (i in 1:8) {
-print(paste("Chamber", i))
-  row_i <- which(FRresp$chamber == i)
-  
-  print(min(row_i))
-  #print(max(row_i))
-
-}
-# Row 1 (1:17400)
-# Row 2 (17401:34800)
-# Row 3 (34801:52200)
-# Row 4 (52201:69600)
-# Row 5 (69601:87000)
-# Row 6 (87001:104400)
-# Row 7 (104401:121800)
-# Row 8 (121801:139200)
-
-#now we can calculate oxygen consumption rates 
-urchin_rates <- calc_rate.int(FRresp,
-              starts = c(1, 17401, 34801, 52201,69601, 87001, 104401, 121801)) 
-summary(urchin_rates)
-plot(urchin_rates)
-```
-
 ### 3. Background Noise
 
 When doing respirometry, you typically run a blank chamber that does not have an organism in it to account for any background noise (respiration, photosynthesis) that may be affecting the O2 measurements that cannot be attributed to your study organism. We must calculate the oxygen consumption rates of the blanks and minus them from the actual rates from the other chambers.
-
-```{r}
-bg_insp <- inspect(FRwider, time = 1, oxygen = 8:9) # We inspect the data of only the blanks and we use this from the only the blanks 1 & 2 columns 
-bg_rate <- calc_rate.bg(bg_insp) #then we calculate the background rates
-print(bg_rate) #actual background rates were individually and then the mean 
-
-#We then use it to adjust our urchin rates
-
-urch_rates_adj <- adjust_rate(urchin_rates,
-                              by = bg_rate) %>% 
-  summary()
-```
-
-### Convert rates into units for metabolic rate
-
-```{r}
-#We must take into consideration the mass of each urchin. so first we'll make a vector of the individual masses
-mass_vec <- c(
-  0.02058,  # urchin 1
-  0.01308,  # urchin 2
-  0.02054,  # urchin 3
-  0.001,         # blank chamber 4
-  0.01334,  # urchin 5
-  0.0186,  # urchin 6
-  0.01707,  # urchin 7
-  0.001        # blank chamber 8
-)
-
-#do the same for volume
- volume <- c(
-      743.92, #Ch 1
-      751.42, #Ch 2
-      743.96, # Ch 3
-      763.50, # ch4
-      751.16, # Ch 5
-      745.90, # Ch 6
-      747.43, #Ch 7
-      763.50 #Ch 8 
- )
-
-urch_rates_conv <- convert_rate(urch_rates_adj,
-                                oxy.unit = "mg/l",
-                                time.unit = "s",
-                                output.unit = "mg/h/g",
-                                mass = mass_vec,
-                                volume = volume) 
-class(urch_rates_conv)
-nrow(urch_rates_conv)
-```
-
-### Prepping for Schoolfield Model
-
-```{r}
-#we need to add a few columns to run model 
-
-#umol.L.sec
-#umol.sec
-#Vol.L
-#blank.rate	
-#umol.sec.corr
-#umol.cm2.hr
-#Rate.ln
-
-
-```
 
 ### Oxygen Consumption
 
@@ -665,65 +449,8 @@ tpc_data2 <- tpc_data2 %>%
 
 #install.packages("rTPC")
 library(rTPC)
-library(nls.multstart)
 library(dplyr)
 library(ggplot2)
-#parameter estimates (THIS IS NOW ALREADY ACCOUNTING FoR MASS)
-start_vals <- get_start_vals(tpc_data2$temp_bin, tpc_data2$mean_rate, 
-                             model_name = "sharpeschoolfull_1981")
-find("get_start_vals") #confirm it's loaded
-
-#repeat for the rate accounted with mass 
-get_start_vals(tpc_data$Temp, tpc_data$rate_mass,
-               model_name = "sharpeschoolfull_1981")
-start_vals["el"] <- 1 #fix those categorical values
-
-#fit the model 
-mod <- nls_multstart(
-  mean_rate ~ sharpeschoolfull_1981(
-    temp = temp_bin,
-    r_tref,
-    e,
-    el,
-    tl,
-    eh,
-    th,
-    tref = 20
-  ),
-  data = tpc_data2,
-  iter = c(3,3,3,3,3,3),
-  start_lower = start_vals - 10,
-  start_upper = start_vals + 10,
-  lower = get_lower_lims(tpc_data2$temp_bin, tpc_data2$mean_rate,
-                         model_name = "sharpeschoolfull_1981"),
-  upper = get_upper_lims(tpc_data2$temp_bin, tpc_data2$mean_rate,
-                         model_name = "sharpeschoolfull_1981"),
-  supp_errors = "Y"
-)
-#Check the fit 
-summary(mod)
-#generate predictions for plotting 
-preds <- data.frame(
-  Temp = seq(min(tpc_data$Temp), max(tpc_data$Temp), length.out = 100)
-)
-preds <- broom::augment(mod, newdata = preds)
-
-#plot TPC 
-ggplot() +
-  geom_point(data = tpc_data, aes(Temp, rate_mass)) +
-  geom_line(data = preds, aes(Temp, .fitted), color = "blue") +
-  theme_bw()
-
-summary(tpc_data$rate_mass)
-
-summary(tpc_data)
-summary(mod)
-
-#RESPR now we can calculate oxygen consumption rates 
-#urchin_rates <- calc_rate.int(FRresp,
-             # starts = c(1:600 17401, 34801, 52201,69601, 87001, #104401, 121801)) 
-#summary(urchin_rates)
-#plot(urchin_rates)
 ```
 
 ### Starting Over Again
@@ -1176,7 +903,7 @@ Field_Reskp_mmlcm2hr <- Field_Reskp_mass_chV %>%
   filter(umol.cm2.hr > 0)
 ```
 
-### Okay this is using the aggregate function
+### aggregate function
 
 ```{r}
 #We're going to group it differently this time
@@ -1267,148 +994,20 @@ plot(aggy_log $temp_bin,
      main = "TPC diagnostic plot")
 ```
 
-### making the model
+## Models
 
-```{r}
-##Install packages
-# load packages
-library(nls.multstart)
-library(broom)
-library(purrr)
-library(tidyverse)
-install.packages("nlstools")
-library(nlstools)
-#install.packages("nlstools2")
-#library(nls2)
-library(grid)
-library(gridExtra)
-library(cowplot)
-library(lubridate)
-install.packages("directlabels")
-library(directlabels)
-#install.packages("rgdal")
-#library(rgdal)
-#library(rgeos)
-#library(ggthemes)
-#library(ggsn)
-#library(sp)
-library(ggrepel)
-#library(raster)
-#library(rgdal)
-library(patchwork)
-```
+### Read in the data
 
 ```{r}
 #read in the data
 TPCdata <- read.csv("TPCdata.csv")
-
-#convert temp to K
-TPCdata <- TPCdata %>% 
-  mutate(tempk = temp_bin + 273.15)
-
-# define the Sharpe-Schoolfield equation
-schoolfield_high <- function(lnc, E, Eh, Th, temp, Tc) {
-  Tc <- 273.15 + Tc
-  k <- 8.62e-5
-  boltzmann.term <- lnc + log(exp(E/k*(1/Tc - 1/temp))) #units are eV/K, electrovolts/Kelvin
-  inactivation.term <- log(1/(1 + exp(Eh/k*(1/Th - 1/temp))))
-  return(boltzmann.term + inactivation.term)
-}
-
-fits <- TPCdata %>%
-  mutate(fit = purrr::map(data, ~ nls_multstart(log.rate ~ schoolfield_high(lnc, E, Eh, Th, temp = tempK, Tc = 26),
-                                                data = .x,
-                                                iter = 1000,
-                                                start_lower = c(lnc = -10, E = 0.1, Eh = 0.2, Th = 285),
-                                                start_upper = c(lnc = 10, E = 2, Eh = 5, Th = 330),
-                                                supp_errors = 'Y',
-                                                na.action = na.omit,
-                                                lower = c(lnc = -10, E = 0, Eh = 0, Th = 0))))
 ```
 
 ### BRMS
 
 ```{r}
-library(brms)
-
-briere_formula <- bf(
-  rate ~ a * temp_bin * (temp_bin - Tmin) * sqrt(Tmax - temp_bin),
-  a ~ 1,
-  Tmin ~ 1,
-  Tmax ~ 1,
-  nl = TRUE
-)
-
-fit <- brm(
-  briere_formula,
-  data = TPCdata,
-  family = gaussian(),
-  start = list(a = 0.0001, Tmin = 6, Tmax = 41),
-  chains = 4,
-  cores = 4
-)
-```
-
-### Another brms try 
-
-```{r}
-briere_formula <- bf(
-  rate ~ a * temp_bin * (temp_bin - Tmin) * sqrt(Tmax - temp_bin),
-  a ~ 1,
-  Tmin ~ 1,
-  Tmax ~ 1,
-  nl = TRUE
-)
-
-fit <- brm(
-  briere_formula,
-  data = TPCdata,
-  family = gaussian(),
-  init = function() list(
-    a = runif(1, 0.00001, 0.001),
-    Tmin = runif(1, 0, 5),
-    Tmax = runif(1, 30, 45)
-  ),
-  chains = 4,
-  cores = 4
-)
-```
-
-### Another try
-
-```{r}
-fit <- brm(
-  briere_formula,
-  data = TPCdata,
-  family = gaussian(),
-  chains = 1,
-  cores = 1,
-  iter = 1000,
-  init = function() list(
-    a = runif(1, 0.00001, 0.001),
-    Tmin = 1,  # safely below observed temps
-    Tmax = 50   # safely above observed temps
-  )
-)
-summary(TPCdata$temp)
-```
-
-### simple 
-
-```{r}
 fit_simple <- 
-  brm(
-  rate ~ temp_bin,
-  data = TPCdata,
-  family = gaussian(),
-  chains = 1,
-  cores = 1,
-  iter = 1000
-)
-summary(fit_simple)
-
-fit_simple <- 
-  brm(data = TPCdata, # Give the model the penguins data
+  brm(data = TPCdata, # Give the model the data
       # Choose a gaussian (normal) distribution
       family = gaussian,
       # Specify the model here. 
@@ -1427,10 +1026,47 @@ summary(fit_simple)
 plot(fit_simple)
 ```
 
+### I noticed in the histogram the data looks a bit skewed so I would like ot try using a gamma family instead of a Guassain
+
+```{r}
+fit_gamma <- 
+  brm(data = TPCdata, # Give the model the data
+      # Choose a gaussian (normal) distribution
+      family = Gamma(),
+      # Specify the model here. 
+      rate ~ 1 + temp_bin,
+      # Here's where you specify parameters for executing the Markov chains
+      # We're using similar to the defaults, except we set cores to 4 so the analysis runs faster than the default of 1
+      iter = 2000, warmup = 1000, chains = 4, cores = 4,
+      # Setting the "seed" determines which random numbers will get sampled.
+      # In this case, it makes the randomness of the Markov chain runs reproducible 
+      # (so that both of us get the exact same results when running the model)
+      seed = 4,
+      # Save the fitted model object as output - helpful for reloading in the output later
+      file = "output/fit_gamma")
+
+summary(fit_gamma)
+plot(fit_gamma)
+```
+
 ### Let's visualize the data
 
 ```{r}
 model <- TPCdata %>% 
   ggplot(aes(x = temp_bin, y = rate)) +
   geom_point() 
+```
+
+### Is it normal data? 
+
+```{r}
+hist <- TPCdata %>% 
+  ggplot(aes(x = rate)) +
+  geom_histogram()
+hist
+
+hist2 <- TPCdata %>% 
+  ggplot(aes(x = umol_cm2_hr)) +
+  geom_histogram()
+hist2
 ```
