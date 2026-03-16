@@ -20,6 +20,10 @@ library(respR)
 #install.packages("devtools")
 library(devtools)
 library(lubridate) #To turn time HH:MM:SS AM/PM into seconds passed
+#install.packages("rTPC")
+library(rTPC)
+library(dplyr)
+library(ggplot2)
 ```
 
 ### Working Directory
@@ -219,7 +223,6 @@ FieldResp %>%
   geom_point()
 
 
-
 Field_Resp_select <- FieldResp %>% 
   mutate(Tub = ifelse(chamber <= 4, "A", "B")) %>% 
   select(Time, Intermittent_phase, Oairsat,Temp, chamber, Date, seconds, Tub) 
@@ -231,51 +234,9 @@ Field_Resp_select <- FieldResp %>%
 
 ```
 
-### Calculate the Slope
-
-```{r}
-#Filtering for only chamber 1
-Ch1 <- FieldResp %>% 
-  filter(chamber == 1)
-
-Ch1_mmr <- calc_rate(Ch1,
-                     from = 359, # three minutes 'wait' after start
-                     to = 27838,   # five minutes later = 'measure' phase
-                     by = "row") |>
-  summary()
-
-Ch1_conv <- convert_rate(Ch1,
-                         oxy.unit = "mg/L",       # oxygen units of the original raw data
-                         time.unit = "secs",      # time units of the original raw data
-                         output.unit = "mg/h/g",  # desired output unit
-                         volume = 0.74392,        # effective volume of the respirometer in L
-                         mass = 0.02058)          # mass of the specimen in kg
-
-summary(Ch1_conv)
-```
-
 # STARTING OVER
 
-### Libraries & Packages
-
-```{r}
-#install.packages("usethis")
-library("usethis") #to help use github
-#install.packages("here")
-library("here") #to help use github
-#install.packages("dplyr")
-library(tidyverse) #this will help us clean up the data 
-library(readr)
-#install.packages("respR")
-library(respR) #to convert O2 into metabolic rate 
-#install.packages("devtools")
-library(devtools)
-library(lubridate) #To turn time HH:MM:SS AM/PM into seconds passed
-```
-
 ### Data Wrangling
-
-#### !! STILL NEED TO ADD IN URCHIN ID !!
 
 ```{r}
 FR1_8 <- read.csv("FieldResp_2026-02-18.csv") #Read in the data
@@ -320,26 +281,6 @@ head(FR1_8) #check out the data to see if selected correctly
 tibble(FR1_8)
 ```
 
-### Data Wrangle
-
-```{r}
-#To use the respR package the data must have the "time" and "oxygen" in the first and second column respectively 
-
-#Rename and move time (seconds) and oxygen columns (Oairsat)
-FRresp <- FR1_8 %>% 
-  relocate(seconds, Oairsat) %>% #Moves seconds and Oairsat to front
-  rename(time = seconds, oxygen = Oairsat) #reames columns 
-
-#we need to pivot wider the data so that each urchin has it's own oxygen column
-FRwider <- FRresp %>%  
-  pivot_wider(
-     id_cols = time,
-    names_from = chamber, 
-    values_from = oxygen,
-  ) %>% #Need to move blank from chamber 4 (Blank 1) before chamber 8 (Blank 2)
-  relocate("4", .before = "8")
-```
-
 ### 3. Background Noise
 
 When doing respirometry, you typically run a blank chamber that does not have an organism in it to account for any background noise (respiration, photosynthesis) that may be affecting the O2 measurements that cannot be attributed to your study organism. We must calculate the oxygen consumption rates of the blanks and minus them from the actual rates from the other chambers.
@@ -382,75 +323,6 @@ FRresp_grouped <- FRresp %>%
   mutate(umol.sec = c(NA, diff(oxygen) / diff(time))) #%>% 
  # ungroup() %>%
  # mutate(blank.rate = ifelse(chamber == 4, umol.sec, NA))
-
-#Then add the blank calc rate 
-df <- FRresp_grouped %>%
-  group_by(blank, time) %>%
-  mutate(blank_rate = if(any(chamber == 4)) umol.sec[chamber == 4] else NA_real_) %>%
-  ungroup()
-
-
-#Add in the blank rates column 
-df2 <- FRresp_grouped %>%
-  group_by(blank, time) %>%
-  mutate(
-    blank_rate = if(any(chamber == 4 & blank == 1)) umol.sec[chamber == 4 & blank == 1] else
-                 if(any(chamber == 8 & blank == 2)) umol.sec[chamber == 8 & blank == 2] else NA_real_
-  ) %>%
-  filter_out(chamber == 4|8)
-  ungroup()
-
-# Row 1 (1:17400)
-# Row 2 (17401:34800)
-# Row 3 (34801:52200)
-# Row 4 (52201:69600)
-# Row 5 (69601:87000)
-# Row 6 (87001:104400)
-# Row 7 (104401:121800)
-# Row 8 (121801:139200)
-
-#mutate(blank.rate = umol.sec[chamber == 4][1]) #%>%  # pick chamber 4 as reference(
-
-#Add in the adjusted calculated rates column 
-df3 <- df2 %>% 
-  mutate(umol.sec.corr = umol.sec - blank_rate) %>% 
-  mutate(Oseckg = umol.sec.corr/masskg)  
-#omg this has been a nightmare trying to filter out chambers 4 (blank 1) and 8 (blank 2)
-write.csv(df3, "df3.csv")  
-trythis <- read.csv("df3.csv")
-trythis <- filter(trythis, !chamber == 4)
-trythis2 <- filter(trythis, !chamber == 8)
-write.csv(df2, "FRespcalculated.csv") #save it as a new csv
-read.csv("FRespcalculated.csv")
-
-
-#okay we also need the means of the rates THISISTHE NEW ONE
-tpc_data2 <- trythis2 %>% 
-  filter(!is.na(umol.sec.corr)) %>% 
-  group_by(temp_bin) %>% 
-  summarise(mean_rate = mean(Oseckg, na.rm = TRUE))
-
-
-#remove NAs, mean for temperature step, group chamber and temp
-tpc_data <- trythis3 %>%
-  filter(!is.na(umol.sec.corr)) %>%
-  group_by(temp_bin) %>%
-  summarise(rate = mean(umol.sec.corr), .groups = "drop")
-
-#tpcplot <- trythis3 %>% 
- # ggplot(aes(x = temp_bin, y = mean_rate)) +
- # geom_point()
-#tpcplot
-
-tpc_data2 <- tpc_data2 %>%
-  mutate(rate_mass = rate / unique(trythis2$masskg))  
-  
-
-
-#install.packages("rTPC")
-library(rTPC)
-library(dplyr)
-library(ggplot2)
 ```
 
 ### Starting Over Again
@@ -737,18 +609,13 @@ summary(mod)
 #we're working with the field resp select data frame because I need the loop column 
 Field_Resp_select
 
-
  # we need these columns timepassed = 1, Oairsar2, tempK, metabolic rate, blank rate, o2seccorrected, o2 mg hour
- 
- 
 Field_Reskp_grouped <- Field_Resp_select %>%
   arrange(Tub, chamber, Time) %>%   # sort first by blank,chamber, then time
   group_by(Tub, chamber) %>%        # calculate rates within each replicate
   mutate(umol.sec = c(NA, diff(Oairsat) / diff(seconds))) #%>% 
  # ungroup() %>%
  # mutate(blank.rate = ifelse(chamber == 4, umol.sec, NA)) 
-
-
 
 #Now we need the blank rate to minus 
 #Get the blank rates 
@@ -772,7 +639,6 @@ Field_Reskp_adj <- Field_Reskp_grouped %>%
   )%>% 
   filter(!chamber == "4" | !chamber == "8") 
 
-
 #seperate m from numbers in the intermittent phase column
 Field_Reskp_adj <- Field_Reskp_adj %>%
   mutate(Intermittent_phase = as.numeric(gsub("M", "", Intermittent_phase)))
@@ -781,13 +647,9 @@ Field_Reskp_adj <- Field_Reskp_adj %>%
 Field_Reskp_tbin <- Field_Reskp_adj %>% 
 mutate(temp_bin = round(Temp))
 
-
-#Minus the MR of the background get the corrected column
-Field_Reskp_adj <- Field_Reskp_adj %>% 
-  mutate(O2.sec.corr = umol.sec - blank_rate) 
-
-
-
+###########################################################################
+#playing to see if it's better to group things by the loop #
+###########################################################################
 
 #lets group it by measuremnet phase and take the average of that 
 Field_Resp_loop <- Field_Reskp_adj %>%
@@ -801,13 +663,7 @@ Field_Resp_loop <- Field_Reskp_adj %>%
      xlab = "Loop #",
      ylab = "Average O2 Consumption",
      main = "TPC diagnostic plot")
-  
-```
-
-### So far so good! Now let's make an O2 column and it's the Starting O2
-
-```{r}
-
+#it appears loop# is not the right way to group it. Makes our sample size too small
 ```
 
 ### Lets try the same grouping, but by temperature instead of phase
